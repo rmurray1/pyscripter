@@ -34,10 +34,9 @@ type
     { Private declarations }
   public
     { Public declarations }
-    class var
-      FileMasks : string;
-      Directory : string;
-      Recursive : Boolean;
+    class var FileMasks : string;
+    class var Directory : string;
+    class var Recursive : Boolean;
     class function Execute: Boolean;
   end;
 
@@ -50,7 +49,7 @@ uses
   Vcl.Graphics,
   Vcl.Themes,
   JvGnuGetText,
-  dmCommands;
+  dmResources;
 
 {$R *.dfm}
 

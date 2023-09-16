@@ -40,8 +40,7 @@ inherited UnitTestWindow: TUnitTestWindow
     000000000022000000150000000000000000000000000000000000000000C3C1
     00008001000000000000000000000000000080010000C0030000E00700000000
     000000000000F00F0000C00300008C3100009C390000FC3F0000F99F0000}
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   inherited BGPanel: TPanel
     Width = 262
     Height = 451
@@ -126,6 +125,7 @@ inherited UnitTestWindow: TUnitTestWindow
           Align = alClient
           BorderStyle = bsNone
           Header.AutoSizeIndex = -1
+          Header.Height = 15
           Header.MainColumn = -1
           Header.Options = [hoColumnResize, hoDrag]
           HintMode = hmHint
@@ -134,6 +134,7 @@ inherited UnitTestWindow: TUnitTestWindow
           ParentShowHint = False
           ShowHint = True
           TabOrder = 0
+          TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoTristateTracking, toAutoHideButtons, toAutoDeleteMovedNodes, toAutoChangeScale]
           TreeOptions.MiscOptions = [toCheckSupport, toFullRepaintOnResize, toInitOnSave, toWheelPanning]
           TreeOptions.PaintOptions = [toHideFocusRect, toHideSelection, toHotTrack, toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection]
           TreeOptions.StringOptions = [toAutoAcceptEditChange]
@@ -145,6 +146,8 @@ inherited UnitTestWindow: TUnitTestWindow
           OnGetHint = UnitTestsGetHint
           OnInitChildren = UnitTestsInitChildren
           OnInitNode = UnitTestsInitNode
+          Touch.InteractiveGestures = [igPan, igPressAndTap]
+          Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
           Columns = <>
         end
       end
@@ -169,8 +172,8 @@ inherited UnitTestWindow: TUnitTestWindow
         object Label2: TLabel
           Left = 7
           Top = 62
-          Width = 73
-          Height = 13
+          Width = 77
+          Height = 15
           Caption = 'Error Message:'
           Color = clNone
           ParentColor = False
@@ -244,25 +247,51 @@ inherited UnitTestWindow: TUnitTestWindow
           Align = alBottom
           Anchors = [akLeft, akTop, akRight, akBottom]
           TabOrder = 0
-          object ErrorText: TRichEdit
+          object ErrorText: TSynEdit
             Left = 1
             Top = 1
             Width = 254
             Height = 85
+            Cursor = crDefault
             Align = alClient
-            BorderStyle = bsNone
+            Constraints.MinHeight = 10
             Font.Charset = ANSI_CHARSET
             Font.Color = clWindowText
-            Font.Height = -11
-            Font.Name = 'MS Shell Dlg 2'
+            Font.Height = -12
+            Font.Name = 'Consolas'
             Font.Style = []
-            Constraints.MinHeight = 10
-            ParentFont = False
-            PlainText = True
-            ReadOnly = True
-            ScrollBars = ssBoth
+            Font.Quality = fqClearTypeNatural
             TabOrder = 0
-            Zoom = 100
+            UseCodeFolding = False
+            BorderStyle = bsNone
+            Gutter.Font.Charset = DEFAULT_CHARSET
+            Gutter.Font.Color = clWindowText
+            Gutter.Font.Height = -11
+            Gutter.Font.Name = 'Consolas'
+            Gutter.Font.Style = []
+            Gutter.Visible = False
+            Gutter.Bands = <
+              item
+                Kind = gbkMarks
+                Width = 13
+              end
+              item
+                Kind = gbkLineNumbers
+              end
+              item
+                Kind = gbkFold
+              end
+              item
+                Kind = gbkTrackChanges
+              end
+              item
+                Kind = gbkMargin
+                Width = 3
+              end>
+            HideSelection = True
+            ReadOnly = True
+            RightEdge = 0
+            SelectedColor.Alpha = 0.400000005960464500
           end
         end
       end
@@ -351,49 +380,40 @@ inherited UnitTestWindow: TUnitTestWindow
     end
   end
   object vilRunImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 0
         CollectionName = 'UnitTests\NotRun'
-        Disabled = False
         Name = 'NotRun'
       end
       item
         CollectionIndex = 1
         CollectionName = 'UnitTests\Running'
-        Disabled = False
         Name = 'Running'
       end
       item
         CollectionIndex = 2
         CollectionName = 'UnitTests\Success'
-        Disabled = False
         Name = 'Success'
       end
       item
         CollectionIndex = 3
         CollectionName = 'UnitTests\Failure'
-        Disabled = False
         Name = 'Failure'
       end
       item
         CollectionIndex = 4
         CollectionName = 'UnitTests\Error'
-        Disabled = False
         Name = 'Error'
       end
       item
         CollectionIndex = 5
         CollectionName = 'UnitTests\TestsCollapsed'
-        Disabled = False
         Name = 'TestsCollapsed'
       end
       item
         CollectionIndex = 6
         CollectionName = 'UnitTests\TestsExpanded'
-        Disabled = False
         Name = 'TestsExpanded'
       end>
     ImageCollection = icRunImages
@@ -402,64 +422,53 @@ inherited UnitTestWindow: TUnitTestWindow
     Top = 112
   end
   object vilImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 21
         CollectionName = 'Delete'
-        Disabled = False
         Name = 'Delete'
       end
       item
         CollectionIndex = 31
         CollectionName = 'Expand'
-        Disabled = False
         Name = 'Expand'
       end
       item
         CollectionIndex = 15
         CollectionName = 'Collapse'
-        Disabled = False
         Name = 'Collapse'
       end
       item
-        CollectionIndex = 87
+        CollectionIndex = 88
         CollectionName = 'Refresh'
-        Disabled = False
         Name = 'Refresh'
       end
       item
         CollectionIndex = 0
         CollectionName = 'Abort'
-        Disabled = False
         Name = 'Abort'
       end
       item
-        CollectionIndex = 92
+        CollectionIndex = 93
         CollectionName = 'Run'
-        Disabled = False
         Name = 'Run'
       end
       item
-        CollectionIndex = 123
+        CollectionIndex = 126
         CollectionName = 'TreeSelectAll'
-        Disabled = False
         Name = 'TreeSelectAll'
       end
       item
-        CollectionIndex = 122
+        CollectionIndex = 125
         CollectionName = 'TreeDeselectAll'
-        Disabled = False
         Name = 'TreeDeselectAll'
       end
       item
-        CollectionIndex = 116
+        CollectionIndex = 118
         CollectionName = 'TestsFailed'
-        Disabled = False
         Name = 'TestsFailed'
       end>
-    ImageCollection = CommandsDataModule.icSVGImages
+    ImageCollection = ResourcesDataModule.icSVGImages
     PreserveItems = True
     Width = 20
     Height = 20

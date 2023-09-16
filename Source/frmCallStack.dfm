@@ -40,8 +40,7 @@ inherited CallStackWindow: TCallStackWindow
     3EE0D9983EE0D9983EE0D9983EE0D9983EE0D9983EE0D3953FCDC28A455C0000
     0000000000000000000000000000000000000000000000000000000000000000
     000000000000000000000000000000000000000000000000000000000000}
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   inherited BGPanel: TPanel
     Width = 604
     Height = 168
@@ -74,6 +73,7 @@ inherited CallStackWindow: TCallStackWindow
           HintMode = hmTooltip
           StateImages = vilImages
           TabOrder = 0
+          TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoTristateTracking, toAutoHideButtons, toAutoDeleteMovedNodes, toAutoChangeScale]
           TreeOptions.MiscOptions = [toFullRepaintOnResize, toInitOnSave, toReportMode, toToggleOnDblClick, toWheelPanning]
           TreeOptions.PaintOptions = [toHotTrack, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection]
           TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect]
@@ -83,6 +83,8 @@ inherited CallStackWindow: TCallStackWindow
           OnGetCellText = CallStackViewGetCellText
           OnGetImageIndex = CallStackViewGetImageIndex
           OnInitNode = CallStackViewInitNode
+          Touch.InteractiveGestures = [igPan, igPressAndTap]
+          Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
           Columns = <
             item
               Position = 0
@@ -124,6 +126,7 @@ inherited CallStackWindow: TCallStackWindow
           Header.AutoSizeIndex = 0
           Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible, hoFullRepaintOnResize]
           Images = vilImages
+          NodeDataSize = 0
           StateImages = vilImages
           TabOrder = 0
           TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoTristateTracking, toAutoDeleteMovedNodes, toAutoChangeScale]
@@ -132,6 +135,8 @@ inherited CallStackWindow: TCallStackWindow
           OnAddToSelection = ThreadViewAddToSelection
           OnGetCellText = ThreadViewGetCellText
           OnGetImageIndex = ThreadViewGetImageIndex
+          Touch.InteractiveGestures = [igPan, igPressAndTap]
+          Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
           Columns = <
             item
               Position = 0
@@ -179,28 +184,23 @@ inherited CallStackWindow: TCallStackWindow
     end
   end
   object vilImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
-        CollectionIndex = 66
+        CollectionIndex = 67
         CollectionName = 'Pin'
-        Disabled = False
         Name = 'Pin'
       end
       item
-        CollectionIndex = 118
+        CollectionIndex = 120
         CollectionName = 'ThreadRunning'
-        Disabled = False
         Name = 'ThreadRunning'
       end
       item
-        CollectionIndex = 117
+        CollectionIndex = 119
         CollectionName = 'ThreadPaused'
-        Disabled = False
         Name = 'ThreadPaused'
       end>
-    ImageCollection = CommandsDataModule.icSVGImages
+    ImageCollection = ResourcesDataModule.icSVGImages
     PreserveItems = True
     Left = 423
     Top = 32

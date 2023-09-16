@@ -24,12 +24,9 @@ Uses
   Vcl.Dialogs,
   SynEditTypes,
   SynUnicode,
-  SynEdit,
-  uEditAppIntfs;
+  SynEdit;
 
 const
-  UTF8BOMString : RawByteString = AnsiChar($EF) + AnsiChar($BB) + AnsiChar($BF);
-  IdentChars: TSysCharSet = ['_', '0'..'9', 'A'..'Z', 'a'..'z'];
   SFileExpr = '(([a-zA-Z]:)?[^\*\?="<>|:,;\+\^]+)'; // fwd slash (/) is allowed
   STracebackFilePosExpr =  '"\<?' + SFileExpr + '\>?", line (\d+)(, in ([\<\>\?\w]+))?';
   SWarningFilePosExpr = '\<?' +SFileExpr + '\>?:(\d+):';
@@ -50,9 +47,6 @@ function GetLongFileName(const APath: string): string;
 (* from cStrings *)
 (* checks if AText starts with ALeft *)
 function StrIsLeft(AText, ALeft: PWideChar): Boolean;
-
-(* checks if AText ends with ARight *)
-function StrIsRight(AText, ARight: PChar): Boolean;
 
 (* returns next token - based on Classes.ExtractStrings *)
 function StrGetToken(var Content: PChar;
@@ -77,18 +71,16 @@ function ConnectedToInternet : boolean;
 function GetNthLine(const S : string; LineNo : integer) : string;
 
 (* Extracts a range of lines from a string *)
-function GetLineRange(const S : string; StartLine, EndLine : integer) : string;
+function GetLineRange(const S : string; StartLine, EndLine : integer;
+  HtmlBreaks: Boolean = False) : string;
 
 (* Extracts a word from a string *)
-function GetWordAtPos(const LineText : string; Start : Integer; WordChars : TSysCharSet;
-  ScanBackwards : boolean = True; ScanForward : boolean = True;
-  HandleBrackets : Boolean = False) : string;
+function GetWordAtPos(const LineText: string; Start: Integer;
+  AllowDot: boolean; ScanBackwards: boolean = True; ScanForward: boolean = True;
+  HandleBrackets: Boolean = False) : string;
 
 (* Format a doc string by removing left space and blank lines at start and bottom *)
 function FormatDocString(const DocString : string) : string;
-
-(* Calculate the indentation level of a line *)
-function CalcIndent(S : string; TabWidth : integer = 4): integer;
 
 (* check if a directory is a Python Package *)
 function DirIsPythonPackage(Dir : string): boolean;
@@ -133,12 +125,6 @@ function DefaultCodeFontName: string;
 procedure SetDefaultUIFont(const AFont: TFont);
 procedure SetContentFont(const AFont: TFont);
 
-(* Visual Studio replacement for SynEdits NextWord *)
-function VSNextWordPos(SynEdit: TCustomSynEdit; const XY: TBufferCoord): TBufferCoord;
-
-(* Visual Studio replacement for SynEdits PrevWord *)
-function VSPrevWordPos(SynEdit: TCustomSynEdit; const XY: TBufferCoord): TBufferCoord;
-
 (* Get the text between two Synedit Block coordinates *)
 function GetBlockText(Strings : TStrings; BlockBegin, BlockEnd : TBufferCoord) : string;
 
@@ -168,6 +154,10 @@ function FileToEncodedStr(const AFileName : string) : AnsiString;
 (* Read File contents into Widestring. Takes into account Python encodings *)
 function FileToStr(const AFileName : string) : string;
 
+(* Get Nth Line of file *)
+function GetNthSourceLine(const AFileName : string; LineNo: integer): string;
+
+
 type
   TDirectoryWalkProc = reference to function (const Path: string;
       const FileInfo: TSearchRec): Boolean;
@@ -189,17 +179,11 @@ procedure GetFilesInPaths(Paths, Masks : string; FileList: TStrings; Recursive :
 *)
 procedure GetDirectoriesInPaths(Paths, Masks : string; DirList: TStrings; Recursive : Boolean = True);
 
-(* Check whether is S is likely to be a number *)
-//function WideStrConsistsofNumberChars(const S: WideString): Boolean;
-
-(* Trim certain chars from left of string *)
-function StrTrimCharsLeft(const S: string; const Chars: TSysCharSet): string;
-
-(* Trim certain chars from right of string *)
-function StrTrimCharsRight(const S: string; const Chars: TSysCharSet): string;
-
 (* Extracts a token and returns the remainder of a string *)
 function StrToken(var S: string; Separator: Char): string;
+
+(* Strips a given character from a string *)
+function StrStripChar(const S: string; const AChar: Char): string;
 
 (* Improved CanFocus *)
 function CanActuallyFocus(WinControl: TWinControl): Boolean;
@@ -220,6 +204,9 @@ function IsColorDark(AColor : TColor) : boolean;
 (* Returns true if the styled clWindows system oolor is dark *)
 function IsStyledWindowsColorDark : boolean;
 
+(* Calculates styled border colors *)
+procedure StyledBorderColors(out BorderNormal, BorderHighlight: TColor);
+
 (* Adds formated text to a Richedit control *)
 procedure AddFormatText(RE : TRichEdit; const S: string;  FontStyle: TFontStyles = [];
  const FontColor: TColor = clDefault; FontSize: Integer = 0);
@@ -233,28 +220,6 @@ function MonitorProfile: string;
 (* Downlads a file from the Interent *)
 function DownloadUrlToFile(const URL, Filename: string): Boolean;
 
-(* ExtracFileName that works with both Windows and Unix file names *)
-function XtractFileName(const FileName: string): string;
-
-(* ExtractFileDir that works with both Windows and Unix file names *)
-function XtractFileDir(const FileName: string): string;
-
-(* Raises a keyword interrupt in another process *)
-procedure RaiseKeyboardInterrupt(ProcessId: DWORD);
-
-(* Terminates a process and all child processes *)
-function TerminateProcessTree(ProcessID: DWORD): Boolean;
-
-(* Executes a Command using CreateProcess and captures output *)
-function ExecuteCmd(Command : string; out CmdOutput: string): cardinal; overload;
-function ExecuteCmd(Command : string; out CmdOutput, CmdError: string): cardinal; overload;
-
-(* Checks if a file extension is contained in a file filter *)
-function FileExtInFileFilter(FileExt, FileFilter: string): Boolean;
-
-(* Checks if a file name is indicates a Python source file *)
-function FileIsPythonSource(FileName: string): Boolean;
-
 (* Simple routine to hook/detour a function *)
 procedure RedirectFunction(OrgProc, NewProc: Pointer);
 
@@ -267,15 +232,23 @@ function StyledMessageDlg(const Msg: string; DlgType: TMsgDlgType;
 {Style adjusted svg FixedColor}
 function SvgFixedColor(Color: TColor): TColor;
 
-type
-  (*  Extends System.RegularExperssions.TRegEx *)
-  TRegExHelper = record helper for TRegEx
-  public
-    procedure Study;
-    procedure SetAdditionalPCREOptions(PCREOptions : Integer);
-    function PerlRegEx : TPerlRegEx;
-  end;
+{Frees Encoding if it is not standard}
+procedure FreeAndNilEncoding(var Encoding: TEncoding);
 
+{Create URI from FileName}
+function FilePathToURI(FilePath: string): string;
+
+{Extract FileName from URI}
+function URIToFilePath(URI: string): string;
+
+{RegisterApplicationRestart}
+function RegisterApplicationRestart(Flags: DWORD = 0): Boolean;
+
+{UnregisterApplicationRestart}
+procedure UnregisterApplicationRestart;
+
+
+type
   TMatchHelper = record helper for TMatch
   public
     function GroupIndex(Index: integer): integer;
@@ -306,7 +279,6 @@ type
   TXStringList = class(TStringList)
   private
     fUTF8CheckLen: Integer;
-    fFileFormat: TSynEditFileFormat;
     fOnInfoLoss: TSynInfoLossEvent;
     fDetectUTF8: Boolean;
   public
@@ -314,18 +286,12 @@ type
     procedure SetTextAndFileFormat(const Value: string);
     procedure LoadFromStream(Stream: TStream; Encoding: TEncoding); override;
     procedure SaveToStream(Stream: TStream; Encoding: TEncoding); override;
-    property FileFormat: TSynEditFileFormat read FFileFormat write fFileFormat;
   published
     property UTF8CheckLen: Integer read fUTF8CheckLen write fUTF8CheckLen default -1;
     property DetectUTF8: Boolean read fDetectUTF8 write fDetectUTF8 default True;
     property OnInfoLoss: TSynInfoLossEvent read fOnInfoLoss write fOnInfoLoss;
   end;
 
-  (*
-    Multiple Read Exclusive Write lock based on Windows slim reader/writer
-    (SRW) Locks.  Can be also used instead of a critical session.
-    Limitations: non-reentrant, not "fair"
-  *)
   (*
     Interfaced based Timer that can be used with anonymous methods
      Developed by  : Nuno Picado (https://github.com/nunopicado/Reusable-Objects)
@@ -345,22 +311,32 @@ type
   http://blog.barrkel.com/2008/11/reference-counted-pointers-revisited.html,
   https://stackoverflow.com/questions/30153682/why-does-this-optimization-of-a-smartpointer-not-work
 *)
-  TObjectHandle<T: class> = class(TInterfacedObject, TFunc<T>)
-  // used by TSmartPointer
-  private
-    FValue:  T;
-  public
-    constructor  Create(AValue:  T);
-    destructor  Destroy;  override;
-    function  Invoke:  T;
-  end;
-
   TSmartPtr = record
+  private type
+    TObjectHandle<T: class> = class(TInterfacedObject, TFunc<T>)
+    private
+      FValue: T;
+    protected
+      function Invoke:  T;
+    public
+      constructor Create(AValue:  T);
+      destructor Destroy;  override;
+    end;
+  public
     class function Make<T: class>(AValue: T): TFunc<T>; static;
   end;
 
+
+(* Font that persists Size instead of Height to be used for DPI awareness *)
+  TStoredFont = class(Vcl.Graphics.TFont)
+  published
+    property Height stored False;
+    property Size stored True;
+    property Style default [];
+  end;
+
 Var
-  StopWatch : TStopWatch;
+  StopWatch: TStopWatch;
 
 implementation
 Uses
@@ -368,33 +344,31 @@ Uses
   Winapi.CommCtrl,
   Winapi.TlHelp32,
   Winapi.Wincodec,
+  WinApi.WinInet,
+  Winapi.ShLwApi,
   System.Types,
-  System.StrUtils,
   System.AnsiStrings,
   System.UITypes,
   System.IOUtils,
+  System.Character,
   System.Math,
+  System.Win.ComObj,
   Vcl.ExtCtrls,
   Vcl.Themes,
   JclFileUtils,
-  JclBase,
-  JclStrings,
   JclPeImage,
-  JclSysUtils,
-  JvJCLUtils,
   JvGnugettext,
   MPCommonUtilities,
   MPCommonObjects,
   MPShellUtilities,
+  SynEditMiscProcs,
   SynEditMiscClasses,
   SynEditTextBuffer,
+  SynEditHighlighter,
   VarPyth,
   PythonEngine,
-  cInternalPython,
   StringResources,
-  cPyScripterSettings,
-  cParameters,
-  cSSHSupport;
+  uEditAppIntfs;
 
 function GetIconIndexFromFile(const AFileName: string;
   const ASmall: boolean): integer;
@@ -438,7 +412,7 @@ begin
       if (Result = '') or (Result[Length(Result)] = ':') then
         Result:= APath
       else Result:= Concat(GetLongFileName(ExcludeTrailingPathDelimiter(Result)),
-                           PathDelim, ExtractFileName(APath));
+                           PathDelim,TPath.GetFileName(APath));
     end;
   end;
 end;
@@ -453,19 +427,6 @@ begin
     Inc(AText);
   end;
   Result := ALeft^ = #0;
-end;
-
-function StrIsRight(AText, ARight: PChar): Boolean;
-(* checks if AText ends with ARight *)
-var
-  LenDiff: Integer;
-begin
-  Result:= ARight = nil;
-  LenDiff := StrLen(AText) - StrLen(ARight);
-  if not Result and (LenDiff >= 0) then begin
-    Inc(AText, LenDiff);
-    Result := StrIsLeft(AText, ARight);
-  end;
 end;
 
 function StrGetToken(var Content: PChar;
@@ -619,12 +580,18 @@ begin
   end;
 end;
 
-function GetLineRange(const S : string; StartLine, EndLine : integer) : string;
+function GetLineRange(const S : string; StartLine, EndLine : integer;
+   HtmlBreaks: Boolean) : string;
 var
   SL : TStringList;
   i, LastLine : integer;
+  LB: string;
 begin
   Result := '';
+  if HtmlBreaks then
+    LB := '<br>'
+  else
+    LB:= SLineBreak;
   SL := TStringList.Create;
   try
     SL.Text := S;
@@ -633,16 +600,21 @@ begin
       if i = LastLine then
         Result := Result + SL[i]
       else
-        Result := Result + SL[i] + sLineBreak;
+        Result := Result + SL[i] + LB;
   finally
     SL.Free;
   end;
 end;
 
-function GetWordAtPos(const LineText : string; Start : Integer; WordChars : TSysCharSet;
-  ScanBackwards : boolean = True; ScanForward : boolean = True;
-  HandleBrackets : Boolean = False) : string;
-{ TODO : Replace WordChars with IsLetterOrDigit to properly deal with Unicode }
+function GetWordAtPos(const LineText: string; Start: Integer;
+  AllowDot: boolean; ScanBackwards: boolean = True; ScanForward: boolean = True;
+  HandleBrackets: Boolean = False) : string;
+
+  function IsIdentChar(C: Char): boolean;
+  begin
+    Result := C.IsLetterOrDigit or (C = '_') or (AllowDot and (C = '.'));
+  end;
+
 Var
   i : integer;
   L, WordStart, WordEnd, ParenCounter, NewStart : integer;
@@ -657,18 +629,19 @@ begin
   WordEnd := Start;
   if (Start <= 0) or (Start > L) then
     Exit('')
-  else if not CharInSet(LineText[Start], WordChars) then
+  else if not IsIdentChar(LineText[Start]) then
     Result := ''
   else begin
     if ScanBackwards then begin
       i := Start;
-      while (i > 1) and CharInSet(LineText[i-1], WordChars) do
+      while (i > 1) and IsIdentChar(LineText[i-1])
+      do
         Dec(i);
       WordStart := i;
     end;
     if ScanForward then begin
       i := Start;
-      while (i < L) and CharInSet(LineText[i+1], WordChars) do
+      while (i < L) and IsIdentChar(LineText[i+1]) do
         Inc(i);
       WordEnd := i;
     end;
@@ -699,7 +672,7 @@ begin
       Result := Copy(LineText, WordStart, NewStart - WordStart + 1) + Result;
       if WordStart > 1 then
         // Recursive call
-        Result := GetWordAtPos(LineText, WordStart - 1, WordChars,
+        Result := GetWordAtPos(LineText, WordStart - 1, AllowDot,
           ScanBackWards, False, True) + Result;
     end;
   end;
@@ -730,32 +703,17 @@ begin
       if Trim(SL[i]) = '' then
         SL[i] := ''
       else
-        Margin := Min(Margin, CalcIndent(SL[i]));
+        Margin := Min(Margin, LeftSpaces(SL[i], True, 4));
     if (Margin > 0) and (Margin < MaxInt) then
       for i := 1 to SL.Count - 1 do
         if SL[i] <> '' then
-          SL[i] := Copy(SL[i], Margin+1, Length(SL[i]) - Margin);
+          SL[i] := Copy(SL[i], Margin + 1);
     Result := SL.Text;
     // Remove any trailing or leading blank lines.
-    Result := StrTrimCharsRight(Result, [#10, #13]);
-    Result := StrTrimCharsLeft(Result, [#10, #13]);
+    Result.Trim([#10, #13]);
   finally
     SL.Free;
   end;
-end;
-
-function CalcIndent(S : string; TabWidth : integer = 4): integer;
-Var
-  i : integer;
-begin
-  Result := 0;
-  for i := 1 to Length(S) do
-    if S[i] = WideChar(#9) then
-      Inc(Result, TabWidth)
-    else if S[i] = ' ' then
-      Inc(Result)
-    else
-      break;
 end;
 
 function DirIsPythonPackage(Dir : string): boolean;
@@ -766,8 +724,7 @@ end;
 
 function FileIsPythonPackage(FileName : string): boolean;
 begin
-  Result := (ExtractFileExt(FileName) = '.py') and
-    (ChangeFileExt(ExtractFileName(FileName), '') = '__init__');
+  Result := TPath.GetFileName(FileName) = '__init__.py';
 end;
 
 function GetPackageRootDir(Dir : string): string;
@@ -779,7 +736,7 @@ begin
   S := Dir;
   Repeat
     Result := S;
-    S := ExtractFileDir(S);
+    S := TPath.GetDirectoryName(S);
   Until (Result = S) or (not DirIsPythonPackage(S));
 end;
 
@@ -787,19 +744,19 @@ function FileNameToModuleName(const FileName : string): string;
 Var
   Path, Dir, Server : string;
 begin
-  Result := ChangeFileExt(XtractFileName(FileName), '');
-  if TSSHFileName.Parse(FileName, Server, Path) then Exit;
+  Result := ChangeFileExt(TPath.GetFileName(FileName), '');
+  if GI_SSHServices.ParseFileName(FileName, Server, Path) then Exit;
 
-  Path := ExtractFileDir(FileName);
-  Dir := ExtractFileName(Path);
+  Path := TPath.GetDirectoryName(FileName);
+  Dir := TPath.GetFileName(Path);
 
   if Path <> '' then begin
     while DirIsPythonPackage(Path) and (Dir <> '') do begin
       Result := Dir + '.' + Result;
-      Path := ExtractFileDir(Path);
-      Dir := ExtractFileName(Path);
+      Path := TPath.GetDirectoryName(Path);
+      Dir := TPath.GetFileName(Path);
     end;
-    if StrIsRight(PChar(Result), '.__init__') then
+    if Result.EndsWith('.__init__') then
       Delete(Result, Length(Result) - 8, 9);
   end;
 end;
@@ -1021,7 +978,12 @@ end;
 function DefaultCodeFontName: string;
 begin
     if CheckWin32Version(6) then
-      Result := 'Consolas'
+    begin
+      if Screen.Fonts.IndexOf('Cascadia Code') >= 0 then
+        Result := 'Cascadia Code'
+      else
+        Result := 'Consolas';
+    end
     else
       Result := 'Courier New';
 end;
@@ -1030,9 +992,7 @@ procedure SetDefaultUIFont(const AFont: TFont);
 Const
   UIFont = 'Segoe UI';
 begin
-  if CheckWin32Version(6)
-    and not SameText(AFont.Name, UIFont)
-    and (Screen.Fonts.IndexOf(UIFont) >= 0) then
+  if CheckWin32Version(6) and (Screen.Fonts.IndexOf(UIFont) >= 0) then
   begin
     AFont.Size := 9;
     AFont.Name := UIFont;
@@ -1066,131 +1026,13 @@ begin
 
   // work backwards
   Line := BlockEnd.Line;
-  Result := System.StrUtils.LeftStr(Strings[Line-1], BlockEnd.Char - 1);
+  Result := Copy(Strings[Line-1], 1, BlockEnd.Char - 1);
   While (Line > BlockBegin.Line) and (Line > 1) do begin
     Dec(Line);
     Result := Strings[Line-1] + WideCRLF + Result;
   end;
   if Line = BlockBegin.Line then
     Delete(Result, 1, BlockBegin.Char -1);
-end;
-
-function VSNextWordPos(SynEdit: TCustomSynEdit; const XY: TBufferCoord): TBufferCoord;
-var
-  CX, CY, LineLen: Integer;
-  Line: UnicodeString;
-begin
-  CX := XY.Char;
-  CY := XY.Line;
-
-  // valid line?
-  if (CY >= 1) and (CY <= SynEdit.Lines.Count) then
-  with SynEdit do begin
-    Line := Lines[CY - 1];
-
-    LineLen := Length(Line);
-    if CX > LineLen then
-    begin
-      // invalid char
-      // find first char in the next line
-      if CY < Lines.Count then
-      begin
-        Line := Lines[CY];
-        LineLen := Length(Line);
-        Inc(CY);
-        CX := 1;
-        while (CX <= LineLen) and IsWhiteChar(Line[CX]) do
-          Inc(CX);
-      end;
-    end
-    else
-    begin
-      if CX = 0 then
-        CX := 1;
-      // valid char
-      if IsIdentChar(Line[CX]) then begin
-        while (CX <= LineLen) and IsIdentChar(Line[CX]) do
-          Inc(CX);
-        while (CX <= LineLen) and IsWhiteChar(Line[CX]) do
-          Inc(CX);
-      end else if IsWhiteChar(Line[CX]) then begin
-        while (CX <= LineLen) and IsWhiteChar(Line[CX]) do
-          Inc(CX);
-      end else begin
-        // breakchar and not whitechar
-        while (CX <= LineLen) and (IsWordBreakChar(Line[CX]) and not IsWhiteChar(Line[CX])) do
-          Inc(CX);
-        while (CX <= LineLen) and IsWhiteChar(Line[CX]) do
-          Inc(CX);
-      end;
-    end;
-  end;
-  Result.Char := CX;
-  Result.Line := CY;
-end;
-
-function VSPrevWordPos(SynEdit: TCustomSynEdit; const XY: TBufferCoord): TBufferCoord;
-var
-  CX, CY: Integer;
-  Line: UnicodeString;
-begin
-  CX := XY.Char;
-  CY := XY.Line;
-
-  // valid line?
-  if (CY >= 1) and (CY <= SynEdit.Lines.Count) then
-  with SynEdit do begin
-    Line := Lines[CY - 1];
-    CX := Min(CX, Length(Line) + 1);
-
-    if CX <= 1 then
-    begin
-      // find last IdentChar in the previous line
-      if CY > 1 then
-      begin
-        Dec(CY);
-        Line := Lines[CY - 1];
-        CX := Length(Line) + 1;
-        while (CX > 1) and IsWhiteChar(Line[CX-1]) do
-          Dec(CX);
-      end;
-    end
-    else
-    begin
-      // CX > 1 and <= LineLenght + 1
-      if IsIdentChar(Line[CX-1]) then begin
-        while (CX > 1) and IsIdentChar(Line[CX-1]) do
-          Dec(CX);
-      end else if IsWhiteChar(Line[CX-1]) then begin
-        while (CX > 1) and IsWhiteChar(Line[CX-1]) do
-          Dec(CX);
-        if CX <= 1 then begin
-          // find last IdentChar in the previous line
-          if CY > 1 then
-          begin
-            Dec(CY);
-            Line := Lines[CY - 1];
-            CX := Length(Line) + 1;
-            while (CX > 1) and IsWhiteChar(Line[CX-1]) do
-              Dec(CX);
-          end;
-        end else if IsIdentChar(Line[CX-1]) then begin
-          while (CX > 1) and IsIdentChar(Line[CX-1]) do
-            Dec(CX);
-        end else begin
-          // breakchar and not whitechar
-          while (CX > 1) and (IsWordBreakChar(Line[CX-1]) and not IsWhiteChar(Line[CX-1])) do
-            Dec(CX);
-        end;
-      end else begin
-        // breakchar and not whitechar
-        while (CX > 1) and (IsWordBreakChar(Line[CX-1]) and not IsWhiteChar(Line[CX-1])) do
-          Dec(CX);
-      end;
-    end;
-  end;
-  Result.Char := CX;
-  Result.Line := CY;
 end;
 
 procedure ExtractPyErrorInfo(E: Variant; var FileName: string; var LineNo: Integer; var Offset: Integer);
@@ -1235,7 +1077,7 @@ begin
   Lines.LineBreak := OldLineBreak;
 
   if GI_PyControl.PythonLoaded and
-    (IsPython or FileIsPythonSource(AFileName)) then
+    (IsPython or GI_PyIDEServices.FileIsPythonSource(AFileName)) then
   begin
     PyEncoding := '';
     if Lines.Count > 0 then
@@ -1243,7 +1085,7 @@ begin
     if (PyEncoding = '') and (Lines.Count > 1) then
       PyEncoding := ParsePySourceEncoding(Lines[1]);
 
-    with SafePyEngine.PythonEngine do begin
+    with GI_PyControl.SafePyEngine.PythonEngine do begin
       if PyEncoding = '' then
         PyEncoding := SysModule.getdefaultencoding();
       SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
@@ -1328,7 +1170,7 @@ begin
   if (AFileName = '') or not FileExists(AFileName) then Exit(False);
 
   try
-    if not FileIsPythonSource(AFileName) then
+    if not GI_PyIDEServices.FileIsPythonSource(AFileName) then
     begin
       Lines.LoadFromFile(AFileName);
       Exit(True);
@@ -1379,7 +1221,7 @@ begin
 
     PyWstr := nil;
     try
-      var Py := SafePyEngine;
+      var Py := GI_PyControl.SafePyEngine;
       with Py.PythonEngine do begin
         try
             PyWstr := PyUnicode_Decode(PAnsiChar(FileText),
@@ -1414,7 +1256,6 @@ function SaveWideStringsToFile(const AFileName: string;
 Var
   FileStream : TFileStream;
   S : AnsiString;
-  OldLineBreak: string;
 begin
   try
     // Create Backup
@@ -1429,22 +1270,14 @@ begin
       end;
     end;
 
-    if not FileIsPythonSource(AFileName) or (Lines.Encoding <> TEncoding.Ansi) then
+    if not GI_PyIDEServices.FileIsPythonSource(AFileName) or (Lines.Encoding <> TEncoding.Ansi) then
     begin
       Lines.SaveToFile(AFileName);
       Exit(True);
     end;
 
     // For Ansi encoded Python files you have deal with coding comments
-    OldLineBreak := Lines.LineBreak;
-    if Lines is TSynEditStringList then
-      Lines.LineBreak := LineBreakFromFileFormat(TSynEditStringListAccess(Lines).FileFormat)
-    else if Lines is TXStringList then
-      Lines.LineBreak := LineBreakFromFileFormat(TXStringList(Lines).FileFormat);
-
     Result := WideStringsToEncodedText(AFileName, Lines, S, True);
-
-    Lines.LineBreak := OldLineBreak;
 
     if Result then begin
       FileStream := TFileStream.Create(AFileName, fmCreate);
@@ -1484,10 +1317,10 @@ Var
   SL : TStrings;
   Server, FName, TempFileName, ErrorMsg : string;
 begin
-  if TSSHFileName.Parse(AFileName, Server, FName) then
+  if GI_SSHServices.ParseFileName(AFileName, Server, FName) then
   begin
     TempFileName := ChangeFileExt(FileGetTempName('PyScripter'), ExtractFileExt(AFileName));
-    if not ScpDownload(Server, FName, TempFileName, ErrorMsg) then
+    if not GI_SSHServices.ScpDownload(Server, FName, TempFileName, ErrorMsg) then
     begin
       StyledMessageDlg(Format(_(SFileSaveError), [FName, ErrorMsg]), mtError, [mbOK], 0);
       Abort;
@@ -1512,10 +1345,10 @@ Var
   SL : TStrings;
   Server, FName, TempFileName, ErrorMsg : string;
 begin
-  if TSSHFileName.Parse(AFileName, Server, FName) then
+  if GI_SSHServices.ParseFileName(AFileName, Server, FName) then
   begin
     TempFileName := ChangeFileExt(FileGetTempName('PyScripter'), ExtractFileExt(AFileName));
-    if not ScpDownload(Server, FName, TempFileName, ErrorMsg) then
+    if not GI_SSHServices.ScpDownload(Server, FName, TempFileName, ErrorMsg) then
     begin
       StyledMessageDlg(Format(_(SFileSaveError), [FName, ErrorMsg]), mtError, [mbOK], 0);
       Abort;
@@ -1532,6 +1365,32 @@ begin
     SL.Free;
   end;
   if Server <> '' then DeleteFile(TempFileName);
+end;
+
+
+function GetNthSourceLine(const AFileName : string; LineNo: integer): string;
+var
+  TempS: string;
+begin
+  Result := '';
+  var Editor := GI_EditorFactory.GetEditorByFileId(AFileName);
+  if Assigned(Editor) then begin
+    if Editor.SynEdit.Lines.Count >= LineNo then
+      Exit(Editor.SynEdit.Lines[LineNo - 1])
+    else
+      Exit;
+  end
+  else if FileExists(AFileName) then
+  try
+    var SR := TSmartPtr.Make(TStreamReader.Create(AFileName))();
+    for var I := 1 to LineNo do
+      if SR.EndOfStream then
+        Exit
+      else
+        TempS := SR.ReadLine;
+    Result := TempS;
+  except
+  end;
 end;
 
 (*
@@ -1584,13 +1443,13 @@ procedure WalkThroughDirectories(const Paths, Masks: string;
   const Recursive: Boolean);
 Var
   Path, PathName : string;
-  PathList, MaskList : TStringDynArray;
+  PathList, MaskList : TArray<string>;
 begin
-  PathList := SplitString(Paths, ';');
-  MaskList := SplitString(Masks, ';');
+  PathList := Paths.Split([';']);
+  MaskList := Masks.Split([';']);
   for Path in PathList do
   begin
-    PathName := Parameters.ReplaceInText(Path);
+    PathName := GI_PyIDEServices.ReplaceParams(Path);
     if  System.SysUtils.DirectoryExists(PathName) then
       WalkThroughDirectory(PathName, MaskList, PreCallback, Recursive);
   end;
@@ -1629,34 +1488,15 @@ begin
   WalkThroughDirectories(Paths, Masks, PreCallback, Recursive);
 end;
 
-function StrTrimCharsLeft(const S: string; const Chars: TSysCharSet): string;
-var
-  I, L: Integer;
-begin
-  I := 1;
-  L := Length(S);
-  while (I <= L) and CharInSet(S[I], Chars) do Inc(I);
-  Result := Copy(S, I, L - I + 1);
-end;
-
-function StrTrimCharsRight(const S: string; const Chars: TSysCharSet): string;
+function StrToken(var S: string; Separator: Char): string;
 var
   I: Integer;
 begin
-  I := Length(S);
-  while (I >= 1) and CharInSet(S[I], Chars) do Dec(I);
-  Result := Copy(S, 1, I);
-end;
-
-function StrToken(var S: string; Separator: WideChar): string;
-var
-  I: Integer;
-begin
-  I := CharPos(S, Separator);
-  if I <> 0 then
+  I := S.IndexOf(Separator);
+  if I >= 0 then
   begin
-    Result := Copy(S, 1, I - 1);
-    Delete(S, 1, I);
+    Result := S.Substring(0, I);
+    Delete(S, 1, I + 1);
   end
   else
   begin
@@ -1665,15 +1505,27 @@ begin
   end;
 end;
 
-//function WideStrReplaceChars(const S: WideString; const Chars: TSysCharSet; Replace: WideChar): WideString;
-//var
-//  I: Integer;
-//begin
-//  Result := S;
-//  for I := 1 to Length(S) do
-//    if CharInSet(Result[I], Chars) then
-//      Result[I] := Replace;
-//end;
+function StrStripChar(const S: string; const AChar: Char): string;
+var
+  Source, Dest: PChar;
+  Len, Index:   NativeInt;
+begin
+  Len := Length(S);
+  SetLength(Result, Len);
+  UniqueString(Result);
+  Source := PChar(S);
+  Dest := PChar(Result);
+  for Index := 0 to Len - 1 do
+  begin
+    if Source^ <> AChar then
+    begin
+      Dest^ := Source^;
+      Inc(Dest);
+    end;
+    Inc(Source);
+  end;
+  SetLength(Result, Dest - PChar(Result));
+end;
 
 function CanActuallyFocus(WinControl: TWinControl): Boolean;
 var
@@ -1688,11 +1540,9 @@ begin
 end;
 
 function IsDigits(S : string): Boolean;
-Var
-  i : integer;
 begin
   Result := True;
-  for I := 1 to Length(S) do
+  for var I := 1 to S.Length do
     if not CharInSet(S[I], ['0'..'9']) then begin
       Result := False;
       break;
@@ -1717,8 +1567,8 @@ begin
   try
     Result.Create(Expr, Options);
     if UCP then
-      Result.SetAdditionalPCREOptions(PCRE_UCP);
-    Result.Study
+      Result.AddRawOptions(PCRE_UCP);
+    Result.Study([preJIT])
   except
     on E: ERegularExpressionError do
       begin
@@ -1745,6 +1595,17 @@ begin
   Result := IsColorDark(StyleServices.GetSystemColor(clWindow));
 end;
 
+procedure StyledBorderColors(out BorderNormal, BorderHighlight: TColor);
+begin
+  if IsStyledWindowsColorDark then begin
+    BorderHighlight := StyleServices.GetSystemColor(clBtnHighlight);
+    BorderNormal := StyleServices.GetSystemColor(clBtnFace);
+  end else begin
+    BorderHighlight := StyleServices.GetSystemColor(clBtnShadow);
+    BorderNormal := StyleServices.GetSystemColor(clBtnFace);
+  end;
+end;
+
 { TXStringList }
 
 constructor TXStringList.Create;
@@ -1753,7 +1614,6 @@ begin
   fUTF8CheckLen := -1;
   Options := Options - [soWriteBOM, soTrailingLineBreak];
   fDetectUTF8 := True;
-  fFileFormat := sffDos;
 end;
 
 procedure TXStringList.LoadFromStream(Stream: TStream; Encoding: TEncoding);
@@ -1781,21 +1641,13 @@ end;
 procedure TXStringList.SaveToStream(Stream: TStream; Encoding: TEncoding);
 Var
   Cancel: Boolean;
-  OldLineBreak: string;
   S: string;
   Buffer, Preamble: TBytes;
 begin
   if Encoding = nil then
     Encoding := DefaultEncoding;
 
-  OldLineBreak := LineBreak;
-  try
-    LineBreak := LineBreakFromFileFormat(fFileFormat);
-    S := GetTextStr;
-  finally
-    LineBreak := OldLineBreak;
-  end;
-
+  S := GetTextStr;
   Cancel := False;
   if (Encoding = TEncoding.ANSI) and Assigned(fOnInfoLoss) and not IsAnsiOnly(S) then
   begin
@@ -1821,9 +1673,9 @@ var
   S: string;
   Size: Integer;
   P, Start, Pmax: PWideChar;
-  fCR, fLF, fLINESEPARATOR: Boolean;
+  fCR, fLF, fUnicodeSeparator: Boolean;
 begin
-  fLINESEPARATOR := False;
+  fUnicodeSeparator := False;
   fCR := False;
   fLF := False;
   BeginUpdate;
@@ -1848,7 +1700,7 @@ begin
         end else Insert(Count, '');
         if P^ = WideLineSeparator then
         begin
-          fLINESEPARATOR := True;
+          fUnicodeSeparator := True;
           Inc(P);
         end;
         if P^ = WideCR then
@@ -1871,14 +1723,14 @@ begin
   finally
     EndUpdate;
   end;
-  if fLINESEPARATOR then
-    FileFormat := sffUnicode
+  if fUnicodeSeparator then
+    LineBreak := WideLineSeparator
   else if fCR and not fLF then
-    FileFormat := sffMac
+    LineBreak := WideCR
   else if fLF and not fCR then
-    FileFormat := sffUnix
+    LineBreak := WideLF
   else
-    FileFormat := sffDos;
+    LineBreak := WideCRLF;
 end;
 
 procedure AddFormatText(RE : TRichEdit; const S: string;  FontStyle: TFontStyles = [];
@@ -2044,156 +1896,6 @@ begin
   Result := TTimer.Create(Interval);
 end;
 
-function XtractFileName(const FileName: string): string;
-var
-  I: Integer;
-begin
-  I := FileName.LastDelimiter(PathDelim + DriveDelim + '/');
-  Result := FileName.SubString(I + 1);
-end;
-
-function XtractFileDir(const FileName: string): string;
-var
-  I: Integer;
-begin
-  I := FileName.LastDelimiter(PathDelim + DriveDelim + '/');
-  if (I > 0) and ((FileName.Chars[I] = PathDelim) or (FileName.Chars[I] = '/')) and
-    (not FileName.IsDelimiter(PathDelim + DriveDelim + '/', I-1)) then Dec(I);
-  Result := FileName.SubString(0, I + 1);
-end;
-
-function CtrlHandler( fdwCtrlType : DWORD): LongBool; stdcall;
-begin
-  Result := True;
-end;
-
-procedure RaiseKeyboardInterrupt(ProcessId: DWORD);
-Var
-  AttachConsole: Function (dwProcessId: DWORD): LongBool; stdCall;
-begin
-  AttachConsole := GetProcAddress (GetModuleHandle ('kernel32.dll'), 'AttachConsole');
-  if Assigned(AttachConsole) then
-  try
-    OSCheck(AttachConsole(ProcessId));
-    OSCheck(SetConsoleCtrlHandler(@CtrlHandler, True));
-    try
-      OSCheck(GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0));
-      Sleep(100);
-    finally
-      OSCheck(SetConsoleCtrlHandler(@CtrlHandler, False));
-      OSCheck(FreeConsole);
-    end;
-  except
-  end;
-end;
-
-type
-  TProcessArray = array of DWORD;
-
- function TerminateProcessTree(ProcessID: DWORD): Boolean;
-
-  function GetChildrenProcesses(const Process: DWORD; const IncludeParent: Boolean): TProcessArray;
-  var
-    Snapshot: Cardinal;
-    ProcessList: PROCESSENTRY32;
-    Current: Integer;
-  begin
-    Current := 0;
-    SetLength(Result, 1);
-    Result[0] := Process;
-    repeat
-      ProcessList.dwSize := SizeOf(PROCESSENTRY32);
-      Snapshot := CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-      if (Snapshot = INVALID_HANDLE_VALUE) or not Process32First(Snapshot, ProcessList) then
-        Continue;
-      repeat
-        if ProcessList.th32ParentProcessID = Result[Current] then
-        begin
-          SetLength(Result, Length(Result) + 1);
-          Result[Length(Result) - 1] := ProcessList.th32ProcessID;
-        end;
-      until Process32Next(Snapshot, ProcessList) = False;
-      Inc(Current);
-    until Current >= Length(Result);
-    if not IncludeParent then
-      Result := Copy(Result, 2, Length(Result));
-  end;
-
-var
-  Handle: THandle;
-  List: TProcessArray;
-  I: Integer;
-begin
-  Result := True;
-  List := GetChildrenProcesses(ProcessID, True);
-  for I := Length(List) - 1 downto 0 do
-    if Result then
-    begin
-      Handle := OpenProcess(PROCESS_TERMINATE, false, List[I]);
-      Result := (Handle <> 0) and TerminateProcess(Handle, 0) and CloseHandle(Handle);
-    end;
-end;
-
-function ExecuteCmd(Command : string; out CmdOutput, CmdError: string): cardinal; overload;
-Var
-  ProcessOptions : TJclExecuteCmdProcessOptions;
-begin
-  ProcessOptions := TJclExecuteCmdProcessOptions.Create(Command);
-  try
-    ProcessOptions.MergeError := False;
-    ProcessOptions.RawOutput := True;
-    ProcessOptions.RawError := True;
-    ProcessOptions.AutoConvertOEM := False;
-    ProcessOptions.CreateProcessFlags :=
-      ProcessOptions.CreateProcessFlags or
-       CREATE_UNICODE_ENVIRONMENT or CREATE_NEW_CONSOLE;
-    ExecuteCmdProcess(ProcessOptions);
-    Result := ProcessOptions.ExitCode;
-    CmdOutput := ProcessOptions.Output;
-    CmdError := ProcessOptions.Error;
-  finally
-    ProcessOptions.Free;
-  end;
-end;
-
-function ExecuteCmd(Command : string; out CmdOutput: string): cardinal; overload;
-Var
-  CmdError: string;
-begin
-  Result := ExecuteCmd(Command, CmdOutput, CmdError);
-end;
-
-function FileExtInFileFilter(FileExt, FileFilter: string): Boolean;
-var
-  j, ExtLen: Integer;
-begin
-  Result := False;
-  ExtLen := FileExt.Length;
-  if ExtLen = 0 then
-    Exit;
-  FileExt := LowerCase(FileExt);
-  FileFilter := LowerCase(FileFilter);
-  j := Pos('|', FileFilter);
-  if j > 0 then begin
-    Delete(FileFilter, 1, j);
-    j := Pos(FileExt, FileFilter);
-    if (j > 0) and
-       ((j + ExtLen > Length(FileFilter)) or (FileFilter[j + ExtLen] = ';'))
-    then
-      Exit(True);
-  end;
-end;
-
-function FileIsPythonSource(FileName: string): Boolean;
-Var
-  Ext: string;
-begin
-  Ext := ExtractFileExt(FileName);
-  if Ext = '' then
-    Exit(False);
-  Result := FileExtInFileFilter(Ext, PyIDEOptions.PythonFileFilter);
-end;
-
 function StyledMessageDlg(const Msg: string; DlgType: TMsgDlgType;
   Buttons: TMsgDlgButtons; HelpCtx: Longint): Integer;
 begin
@@ -2219,33 +1921,54 @@ begin
     Result := $E6E6E6;
 end;
 
-//  Regular Expressions Start
-type
-  { TPerlRegExHelper }
-  TPerlRegExHelper = class helper for TPerlRegEx
-    procedure SetAdditionalPCREOptions(PCREOptions : Integer);
+procedure FreeAndNilEncoding(var Encoding: TEncoding);
+begin
+  if Assigned(Encoding) then
+  begin
+    if not TEncoding.IsStandardEncoding(Encoding) then
+      Encoding.Free;
+    Encoding := nil;
   end;
-
-procedure TPerlRegExHelper.SetAdditionalPCREOptions(PCREOptions: Integer);
-begin
-  with Self do FPCREOptions := FPCREOptions or PCREOptions;
 end;
 
-{ TRegExHelper }
-procedure TRegExHelper.Study;
+function FilePathToURI(FilePath: string): string;
 begin
-  with Self do FRegEx.Study;
+  var BufferLen: DWORD := INTERNET_MAX_URL_LENGTH;
+  SetLength(Result, BufferLen);
+  OleCheck(UrlCreateFromPath(PChar(FilePath), PChar(Result), @BufferLen, 0));
+  SetLength(Result, BufferLen);
 end;
 
-function TRegExHelper.PerlRegEx: TPerlRegEx;
+function URIToFilePath(URI: string): string;
 begin
-  with Self do
-    Result := FregEx;
+  var BufferLen: DWORD := MAX_PATH;
+  SetLength(Result, BufferLen);
+  OleCheck(PathCreateFromUrl(PChar(URI), PChar(Result), @BufferLen, 0));
+  SetLength(Result, BufferLen);
 end;
 
-procedure TRegExHelper.SetAdditionalPCREOptions(PCREOptions: Integer);
+function RegisterApplicationRestart(Flags: DWORD = 0): Boolean;
+type
+  TPKernelRegisterApplicationRestart = function(lpCmdLine: PWideChar; dwFlags: DWORD): HRESULT; stdcall;
+var
+  RegisterApplicationRestart: TPKernelRegisterApplicationRestart;
 begin
-  with Self do FRegEx.SetAdditionalPCREOptions(PCREOptions);
+  GI_PyIDEServices.Logger.Write('RegisterApplicationRestart');
+  Result := False;
+  @RegisterApplicationRestart := GetProcAddress(GetModuleHandle('kernel32.dll'), 'RegisterApplicationRestart');
+  if @RegisterApplicationRestart <> nil then
+    Result := RegisterApplicationRestart('', 0) = S_OK;
+end;
+
+procedure UnregisterApplicationRestart;
+type
+  TPKernelUnregisterApplicationRestart = function(): HRESULT; stdcall;
+var
+  UnregisterApplicationRestart: TPKernelUnregisterApplicationRestart;
+begin
+  @UnregisterApplicationRestart := GetProcAddress(GetModuleHandle('kernel32.dll'), 'UnregisterApplicationRestart');
+  if @UnregisterApplicationRestart <> nil then
+    UnRegisterApplicationRestart();
 end;
 
 { TMatchHelper }
@@ -2273,7 +1996,6 @@ begin
   else
     Result := '';
 end;
-//  Regular Expressions End
 
 procedure RedirectFunction(OrgProc, NewProc: Pointer);
 {
@@ -2338,31 +2060,27 @@ begin
    Result := MulDiv(ASize, 96, FCurrentPPI);
 end;
 
-{ TObjectHandle }
+{ TSmartPointer }
 
-constructor  TObjectHandle<T>.Create(AValue:  T);
+constructor TSmartPtr.TObjectHandle<T>.Create(AValue:  T);
 begin
   FValue  :=  AValue;
 end;
 
-destructor  TObjectHandle<T>.Destroy;
+destructor TSmartPtr.TObjectHandle<T>.Destroy;
 begin
   FValue.Free;
 end;
 
-function  TObjectHandle<T>.Invoke:  T;
+function TSmartPtr.TObjectHandle<T>.Invoke: T;
 begin
   Result  :=  FValue;
 end;
-
-
-{ TSmartPointer }
 
 class function TSmartPtr.Make<T>(AValue: T): TFunc<T>;
 begin
   Result := TObjectHandle<T>.Create(AValue);
 end;
-
 
 initialization
   StopWatch := TStopWatch.StartNew;

@@ -3,12 +3,11 @@ object PyIDEMainForm: TPyIDEMainForm
   Top = 115
   HelpContext = 100
   Caption = 'Python Scripter'
-  ClientHeight = 537
+  ClientHeight = 527
   ClientWidth = 868
   Color = clWindow
   Ctl3D = False
   ParentFont = True
-  OldCreateOrder = False
   Position = poDefault
   ShowHint = True
   StyleElements = [seFont, seClient]
@@ -18,20 +17,20 @@ object PyIDEMainForm: TPyIDEMainForm
   OnKeyUp = FormKeyUp
   OnShortCut = FormShortCut
   OnShow = FormShow
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   object StatusBar: TSpTBXStatusBar
     Left = 0
-    Top = 512
+    Top = 502
     Width = 868
     Height = 25
+    SizeGrip = False
     object lbStatusMessage: TSpTBXLabelItem
       Wrapping = twEndEllipsis
       Options = [tboNoAutoHint]
     end
     object SpTBXRightAlignSpacerItem1: TSpTBXRightAlignSpacerItem
       Wrapping = twNone
-      CustomWidth = 252
+      CustomWidth = 0
     end
     object SpTBXSeparatorItem22: TSpTBXSeparatorItem
     end
@@ -91,6 +90,12 @@ object PyIDEMainForm: TPyIDEMainForm
       ImageName = 'StatusLED'
       Images = vilIndicators
     end
+    object spiLspLed: TSpTBXItem
+      Hint = 'Ready'
+      ImageIndex = 2
+      ImageName = 'LspLED'
+      Images = vilIndicators
+    end
     object spiExternalToolsLED: TSpTBXItem
       Hint = 'External Tool Running'
       ImageIndex = 1
@@ -103,7 +108,7 @@ object PyIDEMainForm: TPyIDEMainForm
     Left = 9
     Top = 85
     Width = 850
-    Height = 418
+    Height = 408
     Align = alClient
     BevelEdges = []
     BevelOuter = bvNone
@@ -113,7 +118,7 @@ object PyIDEMainForm: TPyIDEMainForm
       Left = 0
       Top = 0
       Width = 846
-      Height = 418
+      Height = 408
       Align = alClient
       PopupMenu = TabControlPopupMenu
       OnContextPopup = TabContolContextPopup
@@ -158,7 +163,6 @@ object PyIDEMainForm: TPyIDEMainForm
       object tbiTabClose: TSpTBXItem
         Tag = 1
         Action = CommandsDataModule.actFileClose
-        ImageName = 'TabClose'
         Options = [tboToolbarStyle]
       end
     end
@@ -166,7 +170,7 @@ object PyIDEMainForm: TPyIDEMainForm
       Left = 846
       Top = 0
       Width = 0
-      Height = 418
+      Height = 408
       Align = alRight
       PopupMenu = TabControlPopupMenu
       Visible = False
@@ -219,7 +223,7 @@ object PyIDEMainForm: TPyIDEMainForm
       Left = 846
       Top = 0
       Width = 4
-      Height = 418
+      Height = 408
       Cursor = crSizeWE
       Align = alRight
       ParentColor = False
@@ -371,6 +375,52 @@ object PyIDEMainForm: TPyIDEMainForm
           end
           object mnExecSelection: TSpTBXItem
             Action = actExecSelection
+          end
+        end
+        object SpTBXSeparatorItem10: TSpTBXSeparatorItem
+        end
+        object mnSpelling: TSpTBXSubmenuItem
+          Caption = 'Spelling'
+          ImageIndex = 102
+          ImageName = 'SpellCheck'
+          OnPopup = mnSpellingPopup
+          object mnSpellCheckTopSeparator: TSpTBXSeparatorItem
+          end
+          object mnSpellCheckAdd: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellErrorAdd
+          end
+          object mnSpellCheckDelete: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellErrorDelete
+          end
+          object mnSpellCheckIgnore: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellErrorIgnore
+          end
+          object mnSpellCheckIgnoreOnce: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellErrorIgnoreOnce
+          end
+          object mnSpellCheckSecondSeparator: TSpTBXSeparatorItem
+          end
+          object SpTBXItem20: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellCheckWord
+          end
+          object SpTBXItem21: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellCheckLine
+          end
+          object SpTBXItem22: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellCheckSelection
+          end
+          object SpTBXItem23: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellCheckFile
+          end
+          object SpTBXSeparatorItem24: TSpTBXSeparatorItem
+          end
+          object SpTBXItem24: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellClearErrors
+          end
+          object SpTBXSeparatorItem25: TSpTBXSeparatorItem
+          end
+          object SpTBXItem25: TSpTBXItem
+            Action = CommandsDataModule.actSynSpellCheckAsYouType
           end
         end
         object TBXSeparatorItem13: TSpTBXSeparatorItem
@@ -530,6 +580,9 @@ object PyIDEMainForm: TPyIDEMainForm
         object mnZoomOut: TSpTBXItem
           Action = actEditorZoomOut
         end
+        object mnResetZoom: TSpTBXItem
+          Action = actEditorZoomReset
+        end
         object N10: TSpTBXSeparatorItem
         end
         object mnuToolbars: TSpTBXSubmenuItem
@@ -579,7 +632,7 @@ object PyIDEMainForm: TPyIDEMainForm
         object TBXSeparatorItem18: TSpTBXSeparatorItem
         end
         object TBXSubmenuItem4: TSpTBXSubmenuItem
-          Caption = '&IDE Windows'
+          Caption = 'IDE &Windows'
           object mnViewII: TSpTBXItem
             Action = actViewII
           end
@@ -627,7 +680,7 @@ object PyIDEMainForm: TPyIDEMainForm
           end
         end
         object TBXSubmenuItem6: TSpTBXSubmenuItem
-          Caption = '&Navigate'
+          Caption = 'Navi&gate'
           object mnNavEditor: TSpTBXItem
             Action = actNavEditor
           end
@@ -682,7 +735,7 @@ object PyIDEMainForm: TPyIDEMainForm
           object mnNoSyntax: TSpTBXItem
             Caption = '&No Syntax'
             Hint = 'Do not use syntax highlighting'
-            OnClick = mnNoSyntaxClick
+            OnClick = mnSyntaxClick
           end
         end
         object TBXSeparatorItem21: TSpTBXSeparatorItem
@@ -728,12 +781,10 @@ object PyIDEMainForm: TPyIDEMainForm
         Caption = '&Project'
         object mnProjectNew: TSpTBXItem
           Action = ProjectExplorerWindow.actProjectNew
-          ImageName = 'Print'
           Images = ProjectExplorerWindow.vilImages
         end
         object mnProjectOpen: TSpTBXItem
           Action = ProjectExplorerWindow.actProjectOpen
-          ImageName = 'Undo'
           Images = ProjectExplorerWindow.vilImages
         end
         object SpTBXSubmenuItem1: TSpTBXSubmenuItem
@@ -748,7 +799,6 @@ object PyIDEMainForm: TPyIDEMainForm
         end
         object mnProjectSave: TSpTBXItem
           Action = ProjectExplorerWindow.actProjectSave
-          ImageName = 'Delete'
           Images = ProjectExplorerWindow.vilImages
         end
         object mnProjectSaveAs: TSpTBXItem
@@ -932,6 +982,9 @@ object PyIDEMainForm: TPyIDEMainForm
         end
         object SpTBXItem2: TSpTBXItem
           Action = CommandsDataModule.actToolsEditStartupScripts
+        end
+        object SpTBXItem15: TSpTBXItem
+          Action = CommandsDataModule.actToolsRestartLS
         end
         object SpTBXSeparatorItem12: TSpTBXSeparatorItem
         end
@@ -1265,28 +1318,28 @@ object PyIDEMainForm: TPyIDEMainForm
       end
       object tbiSearchText: TSpTBXComboBox
         Left = 36
-        Top = 2
+        Top = 1
         Width = 160
-        Height = 21
+        Height = 23
+        AutoDropDownWidth = True
         AutoCloseUp = True
-        ItemHeight = 13
+        ItemHeight = 15
         TabOrder = 0
         OnChange = tbiSearchTextChange
         OnExit = tbiSearchTextExit
         OnKeyPress = tbiSearchTextKeyPress
-        AutoDropDownWidth = True
       end
       object tbiReplaceText: TSpTBXComboBox
         Left = 277
-        Top = 2
+        Top = 1
         Width = 160
-        Height = 21
-        ItemHeight = 13
+        Height = 23
+        AutoDropDownWidth = True
+        ItemHeight = 15
         TabOrder = 1
         Visible = False
         OnChange = tbiReplaceTextChange
         OnKeyPress = tbiReplaceTextKeyPress
-        AutoDropDownWidth = True
       end
     end
     object UserToolbar: TSpTBXToolbar
@@ -1304,7 +1357,7 @@ object PyIDEMainForm: TPyIDEMainForm
     Left = 0
     Top = 85
     Width = 9
-    Height = 418
+    Height = 408
     FixAlign = True
     PopupMenu = ToolbarPopupMenu
     Position = dpLeft
@@ -1314,7 +1367,7 @@ object PyIDEMainForm: TPyIDEMainForm
     Left = 859
     Top = 85
     Width = 9
-    Height = 418
+    Height = 408
     FixAlign = True
     PopupMenu = ToolbarPopupMenu
     Position = dpRight
@@ -1322,7 +1375,7 @@ object PyIDEMainForm: TPyIDEMainForm
   end
   object TBXDockBottom: TSpTBXDock
     Left = 0
-    Top = 503
+    Top = 493
     Width = 868
     Height = 9
     FixAlign = True
@@ -1355,6 +1408,7 @@ object PyIDEMainForm: TPyIDEMainForm
     StorageOptions.BooleanStringFalseValues = 'FALSE, NO, N'
     StorageOptions.DateTimeAsString = False
     StorageOptions.DefaultIfReadConvertError = True
+    StorageOptions.StoreDefaultValues = False
     FlushOnDestroy = False
     Location = flCustom
     DefaultSection = 'Other Settings'
@@ -1362,15 +1416,9 @@ object PyIDEMainForm: TPyIDEMainForm
     Left = 394
     Top = 93
   end
-  object CloseTimer: TTimer
-    Enabled = False
-    OnTimer = CloseTimerTimer
-    Left = 39
-    Top = 219
-  end
   object TabControlPopupMenu: TSpTBXPopupMenu
     Images = vilImages
-    Left = 312
+    Left = 336
     Top = 282
     object mnNewModule2: TSpTBXItem
       Action = actFileNewModule
@@ -1420,8 +1468,8 @@ object PyIDEMainForm: TPyIDEMainForm
   end
   object RunningProcessesPopUpMenu: TSpTBXPopupMenu
     LinkSubitems = OutputWindow.RunningProcess
-    Left = 172
-    Top = 280
+    Left = 188
+    Top = 282
   end
   object JvAppInstances: TJvAppInstances
     Active = False
@@ -1439,16 +1487,7 @@ object PyIDEMainForm: TPyIDEMainForm
     Images = vilImages
     LinkSubitems = mnuToolbars
     Left = 40
-    Top = 280
-  end
-  object JvFormStorage: TJvFormStorage
-    Active = False
-    AppStorage = LocalAppStorage
-    AppStoragePath = 'Main Form Placement\'
-    VersionCheck = fpvcNocheck
-    StoredValues = <>
-    Left = 545
-    Top = 93
+    Top = 282
   end
   object actlImmutable: TActionList
     Images = vilImages
@@ -1541,7 +1580,7 @@ object PyIDEMainForm: TPyIDEMainForm
     end
     object actImportModule: TAction
       Category = 'Run'
-      Caption = '&Import Module'
+      Caption = 'Import &Module'
       HelpContext = 340
       HelpType = htContext
       Hint = 'Import module'
@@ -1596,7 +1635,7 @@ object PyIDEMainForm: TPyIDEMainForm
     end
     object actViewStatusBar: TAction
       Category = 'View'
-      Caption = '&Status Bar'
+      Caption = 'Status &Bar'
       HelpContext = 360
       HelpType = htContext
       Hint = 'View/Hide status bar'
@@ -1615,7 +1654,7 @@ object PyIDEMainForm: TPyIDEMainForm
     end
     object actExternalRunConfigure: TAction
       Category = 'Run'
-      Caption = '&Configure External Run...'
+      Caption = 'Configure &External Run...'
       HelpContext = 340
       HelpType = htContext
       Hint = 'Configure External Run'
@@ -1753,7 +1792,7 @@ object PyIDEMainForm: TPyIDEMainForm
     end
     object actClearAllBreakpoints: TAction
       Category = 'Run'
-      Caption = '&Clear All Breakpoints'
+      Caption = 'Clear A&ll Breakpoints'
       HelpContext = 340
       HelpType = htContext
       Hint = 'Clear all breakpoints'
@@ -1839,7 +1878,7 @@ object PyIDEMainForm: TPyIDEMainForm
     end
     object actViewFindResults: TAction
       Category = 'View'
-      Caption = '&Find in Files Results'
+      Caption = 'Find &in Files Results'
       HelpContext = 360
       HelpType = htContext
       Hint = 'View/Hide Find in Files Results'
@@ -1878,7 +1917,7 @@ object PyIDEMainForm: TPyIDEMainForm
     end
     object actFindReferences: TAction
       Category = 'Refactoring'
-      Caption = 'Find &References'
+      Caption = 'Find R&eferences'
       HelpContext = 840
       HelpType = htContext
       Hint = 'Find references of an Identifier'
@@ -2305,6 +2344,16 @@ object PyIDEMainForm: TPyIDEMainForm
       ImageName = 'Download'
       OnExecute = actRemoteFileOpenExecute
     end
+    object actEditorZoomReset: TAction
+      Category = 'View'
+      Caption = '&Reset Zoom'
+      HelpType = htContext
+      Hint = 'Reset the font size of the editor to its default'
+      ImageIndex = 103
+      ImageName = 'ZoomReset'
+      ShortCut = 32864
+      OnExecute = actEditorZoomResetExecute
+    end
   end
   object LocalAppStorage: TJvAppIniFileStorage
     StorageOptions.BooleanStringTrueValues = 'TRUE, YES, Y'
@@ -2319,622 +2368,528 @@ object PyIDEMainForm: TPyIDEMainForm
     Top = 141
   end
   object vilImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 37
         CollectionName = 'FileNew'
-        Disabled = False
         Name = 'FileNew'
       end
       item
         CollectionIndex = 38
         CollectionName = 'FileOpen'
-        Disabled = False
         Name = 'FileOpen'
       end
       item
-        CollectionIndex = 98
+        CollectionIndex = 99
         CollectionName = 'Save'
-        Disabled = False
         Name = 'Save'
       end
       item
-        CollectionIndex = 99
+        CollectionIndex = 100
         CollectionName = 'SaveAll'
-        Disabled = False
         Name = 'SaveAll'
       end
       item
-        CollectionIndex = 71
+        CollectionIndex = 72
         CollectionName = 'PrintSetup'
-        Disabled = False
         Name = 'PrintSetup'
       end
       item
-        CollectionIndex = 70
+        CollectionIndex = 71
         CollectionName = 'PrintPreview'
-        Disabled = False
         Name = 'PrintPreview'
       end
       item
-        CollectionIndex = 69
+        CollectionIndex = 70
         CollectionName = 'Print'
-        Disabled = False
         Name = 'Print'
       end
       item
-        CollectionIndex = 125
+        CollectionIndex = 128
         CollectionName = 'Undo'
-        Disabled = False
         Name = 'Undo'
       end
       item
-        CollectionIndex = 86
+        CollectionIndex = 87
         CollectionName = 'Redo'
-        Disabled = False
         Name = 'Redo'
       end
       item
         CollectionIndex = 17
         CollectionName = 'Cut'
-        Disabled = False
         Name = 'Cut'
       end
       item
         CollectionIndex = 16
         CollectionName = 'Copy'
-        Disabled = False
         Name = 'Copy'
       end
       item
-        CollectionIndex = 64
+        CollectionIndex = 65
         CollectionName = 'Paste'
-        Disabled = False
         Name = 'Paste'
       end
       item
         CollectionIndex = 21
         CollectionName = 'Delete'
-        Disabled = False
         Name = 'Delete'
       end
       item
-        CollectionIndex = 100
+        CollectionIndex = 101
         CollectionName = 'Search'
-        Disabled = False
         Name = 'Search'
       end
       item
         CollectionIndex = 41
         CollectionName = 'FindNext'
-        Disabled = False
         Name = 'FindNext'
       end
       item
-        CollectionIndex = 90
+        CollectionIndex = 91
         CollectionName = 'Replace'
-        Disabled = False
         Name = 'Replace'
       end
       item
         CollectionIndex = 29
         CollectionName = 'Execute'
-        Disabled = False
         Name = 'Execute'
       end
       item
         CollectionIndex = 11
         CollectionName = 'Check'
-        Disabled = False
         Name = 'Check'
       end
       item
         CollectionIndex = 27
         CollectionName = 'EditOptions'
-        Disabled = False
         Name = 'EditOptions'
       end
       item
         CollectionIndex = 1
         CollectionName = 'AppSettings'
-        Disabled = False
         Name = 'AppSettings'
       end
       item
         CollectionIndex = 46
         CollectionName = 'Folders'
-        Disabled = False
         Name = 'Folders'
       end
       item
         CollectionIndex = 49
         CollectionName = 'Function'
-        Disabled = False
         Name = 'Function'
       end
       item
         CollectionIndex = 32
         CollectionName = 'ExternalRun'
-        Disabled = False
         Name = 'ExternalRun'
       end
       item
         CollectionIndex = 31
         CollectionName = 'Expand'
-        Disabled = False
         Name = 'Expand'
       end
       item
         CollectionIndex = 15
         CollectionName = 'Collapse'
-        Disabled = False
         Name = 'Collapse'
       end
       item
         CollectionIndex = 55
         CollectionName = 'Info'
-        Disabled = False
         Name = 'Info'
       end
       item
         CollectionIndex = 51
         CollectionName = 'GoToLine'
-        Disabled = False
         Name = 'GoToLine'
       end
       item
         CollectionIndex = 52
         CollectionName = 'Help'
-        Disabled = False
         Name = 'Help'
       end
       item
-        CollectionIndex = 96
+        CollectionIndex = 97
         CollectionName = 'RunScript'
-        Disabled = False
         Name = 'RunScript'
       end
       item
-        CollectionIndex = 87
+        CollectionIndex = 88
         CollectionName = 'Refresh'
-        Disabled = False
         Name = 'Refresh'
       end
       item
         CollectionIndex = 0
         CollectionName = 'Abort'
-        Disabled = False
         Name = 'Abort'
       end
       item
         CollectionIndex = 58
         CollectionName = 'LineNumbers'
-        Disabled = False
         Name = 'LineNumbers'
       end
       item
         CollectionIndex = 30
         CollectionName = 'Exit'
-        Disabled = False
         Name = 'Exit'
       end
       item
-        CollectionIndex = 92
+        CollectionIndex = 93
         CollectionName = 'Run'
-        Disabled = False
         Name = 'Run'
       end
       item
         CollectionIndex = 18
         CollectionName = 'Debug'
-        Disabled = False
         Name = 'Debug'
       end
       item
-        CollectionIndex = 97
+        CollectionIndex = 98
         CollectionName = 'RunToCursor'
-        Disabled = False
         Name = 'RunToCursor'
       end
       item
-        CollectionIndex = 106
+        CollectionIndex = 108
         CollectionName = 'StepIn'
-        Disabled = False
         Name = 'StepIn'
       end
       item
-        CollectionIndex = 108
+        CollectionIndex = 110
         CollectionName = 'StepOver'
-        Disabled = False
         Name = 'StepOver'
       end
       item
-        CollectionIndex = 107
+        CollectionIndex = 109
         CollectionName = 'StepOut'
-        Disabled = False
         Name = 'StepOut'
       end
       item
         CollectionIndex = 6
         CollectionName = 'Breakpoint'
-        Disabled = False
         Name = 'Breakpoint'
       end
       item
         CollectionIndex = 7
         CollectionName = 'BreakpointsRemove'
-        Disabled = False
         Name = 'BreakpointsRemove'
       end
       item
         CollectionIndex = 10
         CollectionName = 'CallStack'
-        Disabled = False
         Name = 'CallStack'
       end
       item
-        CollectionIndex = 129
+        CollectionIndex = 132
         CollectionName = 'VariablesWin'
-        Disabled = False
         Name = 'VariablesWin'
       end
       item
-        CollectionIndex = 133
+        CollectionIndex = 136
         CollectionName = 'WatchesWin'
-        Disabled = False
         Name = 'WatchesWin'
       end
       item
         CollectionIndex = 8
         CollectionName = 'BreakpointsWin'
-        Disabled = False
         Name = 'BreakpointsWin'
       end
       item
         CollectionIndex = 54
         CollectionName = 'Indent'
-        Disabled = False
         Name = 'Indent'
       end
       item
         CollectionIndex = 20
         CollectionName = 'Dedent'
-        Disabled = False
         Name = 'Dedent'
       end
       item
         CollectionIndex = 13
         CollectionName = 'CodeComment'
-        Disabled = False
         Name = 'CodeComment'
       end
       item
-        CollectionIndex = 124
+        CollectionIndex = 127
         CollectionName = 'UnCodeComment'
-        Disabled = False
         Name = 'UnCodeComment'
       end
       item
-        CollectionIndex = 60
+        CollectionIndex = 61
         CollectionName = 'MessagesWin'
-        Disabled = False
         Name = 'MessagesWin'
       end
       item
         CollectionIndex = 14
         CollectionName = 'CodeExplorer'
-        Disabled = False
         Name = 'CodeExplorer'
       end
       item
-        CollectionIndex = 79
+        CollectionIndex = 80
         CollectionName = 'PyDoc'
-        Disabled = False
         Name = 'PyDoc'
       end
       item
-        CollectionIndex = 63
+        CollectionIndex = 64
         CollectionName = 'PageSetup'
-        Disabled = False
         Name = 'PageSetup'
       end
       item
-        CollectionIndex = 112
+        CollectionIndex = 114
         CollectionName = 'TabNext'
-        Disabled = False
         Name = 'TabNext'
       end
       item
-        CollectionIndex = 113
+        CollectionIndex = 115
         CollectionName = 'TabPrevious'
-        Disabled = False
         Name = 'TabPrevious'
       end
       item
-        CollectionIndex = 120
+        CollectionIndex = 123
         CollectionName = 'Tools'
-        Disabled = False
         Name = 'Tools'
       end
       item
-        CollectionIndex = 121
+        CollectionIndex = 124
         CollectionName = 'ToolsSetup'
-        Disabled = False
         Name = 'ToolsSetup'
       end
       item
         CollectionIndex = 36
         CollectionName = 'FileExplorer'
-        Disabled = False
         Name = 'FileExplorer'
       end
       item
-        CollectionIndex = 119
+        CollectionIndex = 121
         CollectionName = 'TodoWin'
-        Disabled = False
         Name = 'TodoWin'
       end
       item
-        CollectionIndex = 101
+        CollectionIndex = 102
         CollectionName = 'SearchFolder'
-        Disabled = False
         Name = 'SearchFolder'
       end
       item
         CollectionIndex = 44
         CollectionName = 'FindResults'
-        Disabled = False
         Name = 'FindResults'
       end
       item
         CollectionIndex = 34
         CollectionName = 'ExternalRunSetup'
-        Disabled = False
         Name = 'ExternalRunSetup'
       end
       item
         CollectionIndex = 12
         CollectionName = 'CmdOuputWin'
-        Disabled = False
         Name = 'CmdOuputWin'
       end
       item
-        CollectionIndex = 103
+        CollectionIndex = 104
         CollectionName = 'SpecialChars'
-        Disabled = False
         Name = 'SpecialChars'
       end
       item
         CollectionIndex = 2
         CollectionName = 'ArrowLeft'
-        Disabled = False
         Name = 'ArrowLeft'
       end
       item
         CollectionIndex = 3
         CollectionName = 'ArrowRight'
-        Disabled = False
         Name = 'ArrowRight'
       end
       item
-        CollectionIndex = 88
+        CollectionIndex = 89
         CollectionName = 'RegExp'
-        Disabled = False
         Name = 'RegExp'
       end
       item
         CollectionIndex = 56
         CollectionName = 'Keyboard'
-        Disabled = False
         Name = 'Keyboard'
       end
       item
-        CollectionIndex = 126
+        CollectionIndex = 129
         CollectionName = 'UnitTestWin'
-        Disabled = False
         Name = 'UnitTestWin'
       end
       item
-        CollectionIndex = 110
+        CollectionIndex = 112
         CollectionName = 'Styles'
-        Disabled = False
         Name = 'Styles'
       end
       item
         CollectionIndex = 4
         CollectionName = 'Assembly'
-        Disabled = False
         Name = 'Assembly'
       end
       item
-        CollectionIndex = 136
+        CollectionIndex = 139
         CollectionName = 'ZoomIn'
-        Disabled = False
         Name = 'ZoomIn'
       end
       item
-        CollectionIndex = 137
+        CollectionIndex = 140
         CollectionName = 'ZoomOut'
-        Disabled = False
         Name = 'ZoomOut'
       end
       item
-        CollectionIndex = 65
+        CollectionIndex = 66
         CollectionName = 'Pause'
-        Disabled = False
         Name = 'Pause'
       end
       item
         CollectionIndex = 25
         CollectionName = 'EditorMax'
-        Disabled = False
         Name = 'EditorMax'
       end
       item
         CollectionIndex = 28
         CollectionName = 'EditorMin'
-        Disabled = False
         Name = 'EditorMin'
       end
       item
         CollectionIndex = 42
         CollectionName = 'FindPrevious'
-        Disabled = False
         Name = 'FindPrevious'
       end
       item
         CollectionIndex = 53
         CollectionName = 'Highlight'
-        Disabled = False
         Name = 'Highlight'
       end
       item
         CollectionIndex = 50
         CollectionName = 'GoToError'
-        Disabled = False
         Name = 'GoToError'
       end
       item
-        CollectionIndex = 135
+        CollectionIndex = 138
         CollectionName = 'WordWrap'
-        Disabled = False
         Name = 'WordWrap'
       end
       item
-        CollectionIndex = 105
+        CollectionIndex = 107
         CollectionName = 'SplitVertical'
-        Disabled = False
         Name = 'SplitVertical'
       end
       item
-        CollectionIndex = 104
+        CollectionIndex = 106
         CollectionName = 'SplitHorizontal'
-        Disabled = False
         Name = 'SplitHorizontal'
       end
       item
-        CollectionIndex = 68
+        CollectionIndex = 69
         CollectionName = 'PostMortem'
-        Disabled = False
         Name = 'PostMortem'
       end
       item
-        CollectionIndex = 83
+        CollectionIndex = 84
         CollectionName = 'Python'
-        Disabled = False
         Name = 'Python'
       end
       item
-        CollectionIndex = 84
+        CollectionIndex = 85
         CollectionName = 'PythonScript'
-        Disabled = False
         Name = 'PythonScript'
       end
       item
-        CollectionIndex = 73
+        CollectionIndex = 74
         CollectionName = 'ProjectExplorer'
-        Disabled = False
         Name = 'ProjectExplorer'
       end
       item
         CollectionIndex = 26
         CollectionName = 'Editor'
-        Disabled = False
         Name = 'Editor'
       end
       item
-        CollectionIndex = 95
+        CollectionIndex = 96
         CollectionName = 'RunLast'
-        Disabled = False
         Name = 'RunLast'
       end
       item
         CollectionIndex = 19
         CollectionName = 'DebugLast'
-        Disabled = False
         Name = 'DebugLast'
       end
       item
         CollectionIndex = 33
         CollectionName = 'ExternalRunLast'
-        Disabled = False
         Name = 'ExternalRunLast'
       end
       item
         CollectionIndex = 59
         CollectionName = 'Link'
-        Disabled = False
         Name = 'Link'
       end
       item
-        CollectionIndex = 134
+        CollectionIndex = 137
         CollectionName = 'Web'
-        Disabled = False
         Name = 'Web'
       end
       item
-        CollectionIndex = 111
+        CollectionIndex = 113
         CollectionName = 'TabClose'
-        Disabled = False
         Name = 'TabCLose'
       end
       item
-        CollectionIndex = 115
+        CollectionIndex = 117
         CollectionName = 'TabsClose'
-        Disabled = False
         Name = 'TabsClose'
       end
       item
-        CollectionIndex = 80
+        CollectionIndex = 81
         CollectionName = 'PySetup'
-        Disabled = False
         Name = 'PySetup'
       end
       item
         CollectionIndex = 23
         CollectionName = 'Download'
-        Disabled = False
         Name = 'Download'
       end
       item
-        CollectionIndex = 128
+        CollectionIndex = 131
         CollectionName = 'Upload'
-        Disabled = False
         Name = 'Upload'
       end
       item
         CollectionIndex = 57
         CollectionName = 'Layouts'
-        Disabled = False
         Name = 'Layouts'
       end
       item
-        CollectionIndex = 114
+        CollectionIndex = 116
         CollectionName = 'Tabs'
-        Disabled = False
         Name = 'Tabs'
       end
       item
         CollectionIndex = 9
         CollectionName = 'Bug'
-        Disabled = False
         Name = 'Bug'
       end
       item
         CollectionIndex = 24
         CollectionName = 'Edit'
-        Disabled = False
         Name = 'Edit'
       end
       item
-        CollectionIndex = 102
+        CollectionIndex = 103
         CollectionName = 'Setup'
-        Disabled = False
         Name = 'Setup'
+      end
+      item
+        CollectionIndex = 105
+        CollectionName = 'SpellCheck'
+        Name = 'SpellCheck'
+      end
+      item
+        CollectionIndex = 141
+        CollectionName = 'ZoomReset'
+        Name = 'ZoomReset'
       end>
-    ImageCollection = CommandsDataModule.icSVGImages
+    ImageCollection = ResourcesDataModule.icSVGImages
     PreserveItems = True
     Width = 20
     Height = 20
@@ -2946,51 +2901,80 @@ object PyIDEMainForm: TPyIDEMainForm
       item
         IconName = 'StatusLED'
         SVGText = 
-          '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"'#13#10' ' +
-          '    xmlns:xlink="http://www.w3.org/1999/xlink" >'#13#10'  <defs>'#13#10'    ' +
-          '<radialGradient cx=".5" cy=".5"  fx=".3" fy=".2" r="0.5" id="myG' +
-          'radient" gradientUnits="objectBoundingBox">'#13#10'      <stop offset=' +
-          '"0%" stop-opacity="0.3" stop-color="#22AA22"/>'#13#10'      <stop offs' +
-          'et="1" stop-opacity="1" stop-color="#22AA22"/>'#13#10'    </radialGrad' +
-          'ient>'#13#10'  </defs>'#13#10#13#10'  <!-- using my radial gradient 4CBB17 -->'#13#10 +
-          '  <circle cx="50" cy="50" r="40" fill="url(#myGradient)" />'#13#10'</s' +
-          'vg>'
+          '<svg viewBox="0 0 100 100">'#13#10'  <defs>'#13#10'    <radialGradient cx=".' +
+          '5" cy=".5"  fx=".3" fy=".2" r="0.5" id="myGradient" gradientUnit' +
+          's="objectBoundingBox">'#13#10'      <stop offset="0%" stop-opacity="0.' +
+          '3" stop-color="#22AA22"/>'#13#10'      <stop offset="1" stop-opacity="' +
+          '1" stop-color="#22AA22"/>'#13#10'    </radialGradient>'#13#10'  </defs>'#13#10#13#10' ' +
+          ' <!-- using my radial gradient 4CBB17 -->'#13#10'  <circle cx="50" cy=' +
+          '"50" r="40" fill="url(#myGradient)" />'#13#10'</svg>'
       end
       item
         IconName = 'ExternalToolsLED'
         SVGText = 
-          '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"'#13#10' ' +
-          '    xmlns:xlink="http://www.w3.org/1999/xlink" >'#13#10'  <defs>'#13#10'    ' +
-          '<radialGradient cx=".5" cy=".5"  fx=".3" fy=".2" r="0.5" id="myG' +
-          'radient" gradientUnits="objectBoundingBox">'#13#10'      <stop offset=' +
-          '"0%" stop-opacity="0.3" stop-color="#E24444"/>'#13#10'      <stop offs' +
-          'et="1" stop-opacity="1" stop-color="#E24444"/>'#13#10'    </radialGrad' +
-          'ient>'#13#10'  </defs>'#13#10#13#10'  <!-- using my radial gradient -->'#13#10'  <circ' +
-          'le cx="50" cy="50" r="40" fill="url(#myGradient)" />'#13#10'</svg>'
+          '<svg viewBox="0 0 100 100">'#13#10'  <defs>'#13#10'    <radialGradient cx=".' +
+          '5" cy=".5"  fx=".3" fy=".2" r="0.5" id="myGradient" gradientUnit' +
+          's="objectBoundingBox">'#13#10'      <stop offset="0%" stop-opacity="0.' +
+          '3" stop-color="#E24444"/>'#13#10'      <stop offset="1" stop-opacity="' +
+          '1" stop-color="#E24444"/>'#13#10'    </radialGradient>'#13#10'  </defs>'#13#10#13#10' ' +
+          ' <!-- using my radial gradient -->'#13#10'  <circle cx="50" cy="50" r=' +
+          '"40" fill="url(#myGradient)" />'#13#10'</svg>'
+      end
+      item
+        IconName = 'LspLED'
+        SVGText = 
+          '<svg viewBox="0 0 100 100">'#13#10'  <defs>'#13#10'    <radialGradient cx=".' +
+          '5" cy=".5"  fx=".3" fy=".2" r="0.5" id="myGradient" gradientUnit' +
+          's="objectBoundingBox">'#13#10'      <stop offset="0%" stop-opacity="0.' +
+          '3" stop-color="#FF5F1F"/>'#13#10'      <stop offset="1" stop-opacity="' +
+          '1" stop-color="#FF5F1F"/>'#13#10'    </radialGradient>'#13#10'  </defs>'#13#10#13#10' ' +
+          ' <!-- using my radial gradient 4CBB17 -->'#13#10'  <circle cx="50" cy=' +
+          '"50" r="40" fill="url(#myGradient)" />'#13#10'</svg>'
       end>
     Left = 40
     Top = 400
   end
   object vilIndicators: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 0
         CollectionName = 'StatusLED'
-        Disabled = False
         Name = 'StatusLED'
       end
       item
         CollectionIndex = 1
         CollectionName = 'ExternalToolsLED'
-        Disabled = False
         Name = 'ExternalToolsLED'
+      end
+      item
+        CollectionIndex = 2
+        CollectionName = 'LspLED'
+        Name = 'LspLED'
       end>
     ImageCollection = icIndicators
+    PreserveItems = True
     Width = 12
     Height = 12
     Left = 112
+    Top = 400
+  end
+  object vilTabDecorators: TVirtualImageList
+    Images = <
+      item
+        CollectionIndex = 9
+        CollectionName = 'Bug'
+        Name = 'Bug'
+      end
+      item
+        CollectionIndex = 60
+        CollectionName = 'Lock'
+        Name = 'Lock'
+      end>
+    ImageCollection = ResourcesDataModule.icSVGImages
+    PreserveItems = True
+    Width = 14
+    Height = 14
+    Left = 184
     Top = 400
   end
 end

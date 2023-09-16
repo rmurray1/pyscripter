@@ -26,14 +26,6 @@ under the MPL, indicate your decision by deleting the provisions above and
 replace them with the notice and other provisions required by the GPL.
 If you do not delete the provisions above, a recipient may use your version
 of this file under either the MPL or the GPL.
-
-$Id: dlgSynEditOptions.pas,v 1.21 2004/06/26 20:55:33 markonjezic Exp $
-
-You may retrieve the latest version of this file at the SynEdit home page,
-located at http://SynEdit.SourceForge.net
-
-Known Issues:
-
 -------------------------------------------------------------------------------}
 
 unit dlgSynEditOptions;
@@ -306,6 +298,7 @@ type
     FTabWidth: Integer;
     FRightEdge: Integer;
     FSelectedColor: TSynSelectedColor;
+    FIndentGuides: TSynIndentGuides;
     FRightEdgeColor: TColor;
     FFont: TFont;
     FBookmarks: TSynBookMarkOpt;
@@ -314,7 +307,6 @@ type
     FKeystrokes: TSynEditKeyStrokes;
     FOptions: TSynEditorOptions;
     FSynGutter: TSynGutter;
-    FWordBreakChars: string;
     FColor: TColor;
     FActiveLineColor : TColor;
     procedure SetBookMarks(const Value: TSynBookMarkOpt);
@@ -343,8 +335,8 @@ type
     property HideSelection : Boolean read FHideSelection write FHideSelection;
     property MaxUndo : Integer read FMaxUndo write FMaxUndo;
     property SelectedColor : TSynSelectedColor read FSelectedColor write FSelectedColor;
+    property IndentGuides: TSynIndentGuides read FIndentGuides;
     property TabWidth : Integer read FTabWidth write FTabWidth;
-    property WordBreakChars : string read FWordBreakChars write FWordBreakChars;
     property Keystrokes : TSynEditKeyStrokes read FKeystrokes write SetKeystrokes;
     property ActiveLineColor : TColor read FActiveLineColor write FActiveLineColor;
   end;
@@ -538,6 +530,7 @@ begin
     Self.Gutter.Assign(TCustomSynEdit(Source).Gutter);
     Self.Keystrokes.Assign(TCustomSynEdit(Source).Keystrokes);
     Self.SelectedColor.Assign(TCustomSynEdit(Source).SelectedColor);
+    Self.IndentGuides.Assign(TCustomSynEdit(Source).IndentGuides);
 
     Self.Color := TCustomSynEdit(Source).Color;
     Self.Options := TCustomSynEdit(Source).Options;
@@ -552,7 +545,6 @@ begin
     Self.WantTabs := TCustomSynEdit(Source).WantTabs;
     Self.WordWrap := TCustomSynEdit(Source).WordWrap;
     Self.ActiveLineColor := TCustomSynEdit(Source).ActiveLineColor;
-//!!    Self.WordBreakChars := TSynEdit(Source).WordBreakChars;
   end else if Assigned(Source) and (Source is TSynEditorOptionsContainer) then
   begin
     Self.Font.Assign(TSynEditorOptionsContainer(Source).Font);
@@ -560,7 +552,7 @@ begin
     Self.Gutter.Assign(TSynEditorOptionsContainer(Source).Gutter);
     Self.Keystrokes.Assign(TSynEditorOptionsContainer(Source).Keystrokes);
     Self.SelectedColor.Assign(TSynEditorOptionsContainer(Source).SelectedColor);
-
+    Self.IndentGuides.Assign(TSynEditorOptionsContainer(Source).IndentGuides);
     Self.Color := TSynEditorOptionsContainer(Source).Color;
     Self.Options := TSynEditorOptionsContainer(Source).Options;
     Self.ExtraLineSpacing := TSynEditorOptionsContainer(Source).ExtraLineSpacing;
@@ -589,7 +581,6 @@ begin
       TCustomSynEdit(Dest).Gutter.Assign(Self.Gutter);
       TCustomSynEdit(Dest).Keystrokes.Assign(Self.Keystrokes);
       TCustomSynEdit(Dest).SelectedColor.Assign(Self.SelectedColor);
-
       TCustomSynEdit(Dest).Color := Self.Color;
       TCustomSynEdit(Dest).Options := Self.Options;
       TCustomSynEdit(Dest).ExtraLineSpacing := Self.ExtraLineSpacing;
@@ -613,33 +604,32 @@ end;
 constructor TSynEditorOptionsContainer.Create(AOwner: TComponent);
 begin
   inherited;
-  FBookmarks:= TSynBookMarkOpt.Create(Self);
-  FKeystrokes:= TSynEditKeyStrokes.Create(Self);
-  FSynGutter:= TSynGutter.Create;
-  FSelectedColor:= TSynSelectedColor.Create;
-  FSelectedColor.Foreground:= clHighlightText;
-  FSelectedColor.Background:= clHighlight;
+  FBookmarks := TSynBookMarkOpt.Create(Self);
+  FKeystrokes := TSynEditKeyStrokes.Create(Self);
+  FSynGutter := TSynGutter.Create;
+  FSynGutter.AssignableBands := False;
+  FSelectedColor := TSynSelectedColor.Create;
+  FIndentGuides := TSynIndentGuides.Create;
+  FSelectedColor.Foreground := clHighlightText;
+  FSelectedColor.Background := clHighlight;
   fActiveLineColor := clNone;
-  FFont:= TFont.Create;
-  FFont.Name:= 'Courier New';
-  FFont.Size:= 8;
-  Color:= clWindow;
+  FFont := TFont.Create;
+  FFont.Name := DefaultCodeFontName;
+  FFont.Size := 10;
+  Color := clWindow;
   Keystrokes.ResetDefaults;
-  Options := [eoAutoIndent,eoDragDropEditing,eoDropFiles,eoScrollPastEol,
-    eoShowScrollHint,eoSmartTabs,eoAltSetsColumnMode, eoTabsToSpaces,
-    eoTrimTrailingSpaces, eoKeepCaretX];
+  Options := SYNEDIT_DEFAULT_OPTIONS;
   ExtraLineSpacing := 0;
   HideSelection := False;
   InsertCaret := ctVerticalLine;
   OverwriteCaret := ctBlock;
-  MaxUndo := 1024;
+  MaxUndo := 0;
   RightEdge := 80;
   RightEdgeColor := clSilver;
   fActiveLineColor := clNone;
   TabWidth := 8;
   WantTabs := True;
   WordWrap := False;
-//!!  WordBreakChars:= '.,;:''"&!?$%#@<>[](){}^-=+-*/\|';
 end;
 
 destructor TSynEditorOptionsContainer.Destroy;
@@ -648,6 +638,7 @@ begin
   FKeyStrokes.Free;
   FSynGutter.Free;
   FSelectedColor.Free;
+  FIndentGuides.Free;
   FFont.Free;
   inherited;
 end;
@@ -723,8 +714,6 @@ begin
   //Line Spacing
   eLineSpacing.Text:= IntToStr(FSynEdit.ExtraLineSpacing);
   eTabWidth.Text:= IntToStr(FSynEdit.TabWidth);
-  //Break Chars
-//!!  eBreakchars.Text:= FSynEdit.WordBreakChars;
   //Bookmarks
   ckBookmarkKeys.Checked:= FSynEdit.BookMarkOptions.EnableKeys;
   ckBookmarkVisible.Checked:= FSynEdit.BookMarkOptions.GlyphsVisible;
@@ -804,8 +793,6 @@ begin
   //Line Spacing
   FSynEdit.ExtraLineSpacing:= StrToIntDef(eLineSpacing.Text, 0);
   FSynEdit.TabWidth:= StrToIntDef(eTabWidth.Text, 8);
-  //Break Chars
-//!!  FSynEdit.WordBreakChars:= eBreakchars.Text;
   //Bookmarks
   FSynEdit.BookMarkOptions.EnableKeys:= ckBookmarkKeys.Checked;
   FSynEdit.BookMarkOptions.GlyphsVisible:= ckBookmarkVisible.Checked;
@@ -881,9 +868,6 @@ begin
     Font.Color := StyleServices.GetSystemColor(clWindowText);
     Color := StyleServices.GetSystemColor(clWindow);
   end;
-
-  StackPanel1.Spacing := MulDiv(StackPanel1.Spacing, FCurrentPPI, 96);
-  StackPanel2.Spacing := MulDiv(StackPanel2.Spacing, FCurrentPPI, 96);
 end;
 
 
@@ -1015,11 +999,12 @@ begin
 end;
 
 procedure TfmEditorOptionsDialog.FormShow(Sender: TObject);
-var Commands: TStringList;
-    i : Integer;
+var
+ Commands: TStringList;
+ i : Integer;
 begin
-//We need to do this now because it will not have been assigned when
-//create occurs
+  //We need to do this now because it will not have been assigned when
+  //create occurs
   cKeyCommand.Items.Clear;
   //Start the callback to add the strings
   if FExtended then
@@ -1043,7 +1028,6 @@ begin
 
   TabControl.ActivePage := Display;
 
-  //Added by KF 2005_JUL_15
   if Color.TabVisible then
   begin
     if cbHighlighters.Items.Count > 0 then
@@ -1054,6 +1038,15 @@ begin
     else
       cbHighlightersChange(cbHighlighters);  //run OnChange handler (it wont be fired on setting the itemindex prop)
   end;
+
+  // DPI Scaling
+  LabFont.Font.PixelsPerInch := FCurrentPPI;
+  LabFont.Canvas.Font.PixelsPerInch := FCurrentPPI;
+  lblGutterFont.Font.PixelsPerInch := FCurrentPPI;
+  lblGutterFont.Canvas.Font.PixelsPerInch := FCurrentPPI;
+
+  StackPanel1.Spacing := MulDiv(StackPanel1.Spacing, FCurrentPPI, 96);
+  StackPanel2.Spacing := MulDiv(StackPanel2.Spacing, FCurrentPPI, 96);
 end;
 
 procedure TfmEditorOptionsDialog.KeyListSelectItem(Sender: TObject;

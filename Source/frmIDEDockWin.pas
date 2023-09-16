@@ -23,6 +23,7 @@ uses
   Vcl.ExtCtrls,
   JvComponentBase,
   JvDockControlForm,
+  JvAppStorage,
   SpTBXSkins,
   SpTBXItem;
 
@@ -39,22 +40,21 @@ type
       ConjoinHost: TJvDockConjoinHostForm);
     procedure FormDeactivate(Sender: TObject);
     procedure FormActivate(Sender: TObject);
+    procedure CMParentFontChanged(var Message: TCMParentFontChanged); message CM_PARENTFONTCHANGED;
   private
     { Private declarations }
   protected
     procedure WMSpSkinChange(var Message: TMessage); message WM_SPSKINCHANGE;
   public
     { Public declarations }
+    BorderHighlight : TColor;
+    BorderNormal : TColor;
     HasFocus : Boolean;
     ImageName: string;
     procedure CreateFormIcon;
-    procedure ScaleForPPI(NewPPI: Integer); override;
+    procedure StoreSettings(AppStorage: TJvCustomAppStorage); virtual;
+    procedure RestoreSettings(AppStorage: TJvCustomAppStorage); virtual;
   end;
-
-var
-  IDEDockWindow: TIDEDockWindow;
-  BorderHighlight : TColor;
-  BorderNormal : TColor;
 
 implementation
 
@@ -62,7 +62,7 @@ uses
   Vcl.Themes,
   SVG,
   SVGIconImageCollection,
-  frmPyIDEMain,
+  dmResources,
   uCommonFunctions;
 
 {$R *.dfm}
@@ -82,23 +82,13 @@ end;
 
 procedure TIDEDockWindow.WMSpSkinChange(var Message: TMessage);
 begin
-  Assert(SkinManager.GetSkinType <> sknSkin);
   CreateFormIcon;
 
-  if IsStyledWindowsColorDark then begin
-    BorderHighlight := StyleServices.GetSystemColor(clBtnHighlight);
-    BorderNormal := StyleServices.GetSystemColor(clBtnFace);
-  end else begin
-    BorderHighlight := StyleServices.GetSystemColor(clBtnShadow);
-    BorderNormal := StyleServices.GetSystemColor(clBtnFace);
-  end;
-  if HasFocus then begin
-    BGPanel.Color := BorderHighlight;
-    //FGPanel.Margins.SetBounds(2,2,2,2);
-  end else begin
+  StyledBorderColors(BorderNormal, BorderHighlight);
+  if HasFocus then
+    BGPanel.Color := BorderHighlight
+  else
     BGPanel.Color := BorderNormal;
-    //FGPanel.Margins.SetBounds(0,0,0,0);
-  end;
   Invalidate;
 end;
 
@@ -106,18 +96,19 @@ procedure TIDEDockWindow.FormActivate(Sender: TObject);
 begin
   HasFocus := True;
   BGPanel.Color := BorderHighlight;
-  //FGPanel.Margins.SetBounds(2,2,2,2);
 end;
 
 procedure TIDEDockWindow.FormCreate(Sender: TObject);
 begin
-  DockClient.DockStyle := PyIDEMainForm.DockServer.DockStyle;
-  BorderHighlight := StyleServices.GetSystemColor(clBtnHighlight);
-  BorderNormal := StyleServices.GetSystemColor(clBtnShadow);
+  DockClient.DockStyle := ResourcesDataModule.DockStyle;
+  StyledBorderColors(BorderNormal, BorderHighlight);
 
   CreateFormIcon;
 
   SkinManager.AddSkinNotification(Self, True);
+
+  Font.Assign(Application.DefaultFont);
+  Font.Height := MulDiv(Font.Height, FCurrentPPI, Font.PixelsPerInch);
 
   DockClient.OnConjoinHostFormCreated := DockClientConjoinHostFormCreated;
 end;
@@ -129,7 +120,7 @@ begin
   //FGPanel.Margins.SetBounds(0,0,0,0);
   // Set the MouseleaveHide option
   // It may have been reset when a dock form is shown via the keyboard or menu
-  PyIDEMainForm.JvDockVSNetStyleSpTBX.ChannelOption.MouseleaveHide := True;
+  ResourcesDataModule.DockStyle.ChannelOption.MouseleaveHide := True;
 end;
 
 procedure TIDEDockWindow.FormDestroy(Sender: TObject);
@@ -137,11 +128,14 @@ begin
   SkinManager.RemoveSkinNotification(Self);
 end;
 
-procedure TIDEDockWindow.ScaleForPPI(NewPPI: Integer);
+procedure TIDEDockWindow.RestoreSettings(AppStorage: TJvCustomAppStorage);
 begin
-  DockClient.LRDockWidth := MulDiv(DockClient.LRDockWidth, NewPPI, FCurrentPPI);
-  DockClient.TBDockHeight := MulDiv(DockClient.TBDockHeight, NewPPI, FCurrentPPI);
-  inherited;
+  // Empty at the base class
+end;
+
+procedure TIDEDockWindow.StoreSettings(AppStorage: TJvCustomAppStorage);
+begin
+  // Empty at the base class
 end;
 
 procedure TIDEDockWindow.DockClientTabHostFormCreated(
@@ -151,15 +145,21 @@ begin
   TabHost.LRDockWidth := DockClient.LRDockWidth;
   TabHost.FormStyle := fsNormal;
   TabHost.PopupMode := pmExplicit;
-  TabHost.PopupParent := PyIDEMainForm;
+  TabHost.PopupParent := Application.MainForm;
+end;
+
+procedure TIDEDockWindow.CMParentFontChanged(var Message: TCMParentFontChanged);
+{ Invoked when Application.DefaultFont changes }
+begin
+  Font.Height := MulDiv(Application.DefaultFont.Height, FCurrentPPI,
+    Screen.PixelsPerInch);
 end;
 
 procedure TIDEDockWindow.CreateFormIcon;
 begin
    if ImageName <> '' then
    begin
-     var SVGItem := (PyIDEMainForm.vilImages.ImageCollection
-       as TSVGIconImageCollection).SVGIconItems.GetIconByName(ImageName);
+     var SVGItem := ResourcesDataModule.icSVGImages.SVGIconItems.GetIconByName(ImageName);
      var Details := StyleServices.GetElementDetails(ttTabItemNormal);
      var Color: TColor;
      if not StyleServices.GetElementColor(Details, ecTextColor, Color) then
@@ -173,7 +173,7 @@ procedure TIDEDockWindow.DockClientConjoinHostFormCreated(
 begin
   ConjoinHost.FormStyle := fsNormal;
   ConjoinHost.PopupMode := pmExplicit;
-  ConjoinHost.PopupParent := PyIDEMainForm;
+  ConjoinHost.PopupParent := Application.MainForm;
 end;
 
 end.

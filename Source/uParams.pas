@@ -60,6 +60,7 @@ uses
   System.SysUtils,
   System.Win.Registry,
   System.RegularExpressions,
+  System.IOUtils,
   Vcl.Clipbrd,
   Vcl.Dialogs,
   Vcl.FileCtrl,
@@ -68,14 +69,15 @@ uses
   PythonVersions,
   JvGnugettext,
   StringResources,
-  dmCommands,
+  dmResources,
   uEditAppIntfs,
   uCommonFunctions,
   cPyScripterSettings,
   cParameters,
   cPyBaseDebugger,
   cProjectClasses,
-  cPyControl;
+  cPyControl,
+  dlgCommandLine;
 
 function GetActiveDoc: string;
 Var
@@ -84,7 +86,7 @@ begin
   Result:= '';
   Editor := GI_PyIDEServices.ActiveEditor;
   if Assigned(Editor) then
-    Result:= Editor.GetFileNameOrTitle;
+    Result:= Editor.FileId;
 end;
 
 function GetActiveScript: string;
@@ -146,7 +148,7 @@ begin
   Result:= '';
   if (AFileName = '') or SameText('ActiveDoc', AFileName) then
     AEditor:= GI_ActiveEditor
-  else AEditor:= GI_EditorFactory.GetEditorByNameOrTitle(AFileName);
+  else AEditor:= GI_EditorFactory.GetEditorByFileId(AFileName);
   if Assigned(AEditor) then
     Result:= AEditor.GetSynEdit.LineText;
 end;
@@ -158,7 +160,7 @@ begin
   Result:= '0';
   if (AFileName = '') or SameText('ActiveDoc', AFileName) then
     AEditor:= GI_ActiveEditor
-  else AEditor:= GI_EditorFactory.GetEditorByNameOrTitle(AFileName);
+  else AEditor:= GI_EditorFactory.GetEditorByFileId(AFileName);
   if Assigned(AEditor) then
     Result:= AEditor.GetSynEdit.CaretY.ToString;
 end;
@@ -179,7 +181,7 @@ function SelectFile(const ATitle: string): string;
 var
   SaveTitle: string;
 begin
-  with CommandsDataModule.dlgFileOpen do begin
+  with ResourcesDataModule.dlgFileOpen do begin
     Filter := _(SFilterAllFiles);
     FileName := '';
     SaveTitle:= Title;
@@ -403,7 +405,7 @@ begin
     else AName:= ARegKey;
     (* if key exists, read key data *)
     if OpenKeyReadOnly(ExtractFilePath(AName)) then begin
-      AName:= ExtractFileName(ARegKey);
+      AName:= TPath.GetFileName(ARegKey);
       if not GetDataInfo(AName, Info) then
         Info.RegData:= rdUnknown;
       (* convert value to string *)
@@ -440,7 +442,7 @@ var
 begin
   Result:= '';
   // look in open files
-  AEditor:= GI_EditorFactory.GetEditorByNameOrTitle(AFileName);
+  AEditor:= GI_EditorFactory.GetEditorByFileId(AFileName);
   if Assigned(AEditor) then
     Result:= AEditor.GetSynEdit.Text
   else begin
@@ -464,7 +466,7 @@ begin
       if (Result = '') or (Result[Length(Result)] = ':') then
         Result:= APath
       else Result:= GetShortFileName(ExcludeTrailingPathDelimiter(Result)) +
-                           PathDelim + ExtractFileName(APath);
+                           PathDelim + TPath.GetFileName(APath);
     end;
   end;
 end;
@@ -514,10 +516,7 @@ end;
 
 function GetCmdLineArgs: string;
 begin
-  if PyIDEOptions.UseCommandLine then
-    Result := PyIDEOptions.CommandLine
-  else
-    Result := '';
+  Result := Parameters.ReplaceInText(CommandLineParams);
 end;
 
 function GetEnvironmentVariable(const Name: string): string;
@@ -604,22 +603,18 @@ begin
 
     (* parameters, valid for current Windows configuration *)
     // Python Paths etc.
-    RegisterParameter('Python33Dir', GetPythonDir('3.3'), nil);
-    RegisterParameter('Python34Dir', GetPythonDir('3.4'), nil);
-    RegisterParameter('Python35Dir', GetPythonDir('3.5'), nil);
-    RegisterParameter('Python36Dir', GetPythonDir('3.6'), nil);
     RegisterParameter('Python37Dir', GetPythonDir('3.7'), nil);
     RegisterParameter('Python38Dir', GetPythonDir('3.8'), nil);
     RegisterParameter('Python39Dir', GetPythonDir('3.9'), nil);
     RegisterParameter('Python310Dir', GetPythonDir('3.10'), nil);
-    RegisterParameter('Python33Exe', '$[PYTHON33DIR]python.exe', nil);
-    RegisterParameter('Python34Exe', '$[PYTHON34DIR]python.exe', nil);
-    RegisterParameter('Python35Exe', '$[PYTHON35DIR]python.exe', nil);
-    RegisterParameter('Python36Exe', '$[PYTHON36DIR]python.exe', nil);
+    RegisterParameter('Python311Dir', GetPythonDir('3.11'), nil);
+    RegisterParameter('Python312Dir', GetPythonDir('3.12'), nil);
     RegisterParameter('Python37Exe', '$[PYTHON37DIR]python.exe', nil);
     RegisterParameter('Python38Exe', '$[PYTHON38DIR]python.exe', nil);
     RegisterParameter('Python39Exe', '$[PYTHON39DIR]python.exe', nil);
     RegisterParameter('Python310Exe', '$[PYTHON310DIR]python.exe', nil);
+    RegisterParameter('Python311Exe', '$[PYTHON311DIR]python.exe', nil);
+    RegisterParameter('Python312Exe', '$[PYTHON312DIR]python.exe', nil);
     RegisterParameter('PythonDir', _('Directory of active Python version'), GetActivePythonDir);
     RegisterParameter('PythonExe', _('Executable of active Python'), GetActivePythonExe);
     RegisterParameter('PythonwExe', _('Executable of active Python'), GetActivePythonwExe);
@@ -644,7 +639,7 @@ begin
     // register parameter modifiers
     RegisterModifier('Path', _('Path of file'), ExtractFilePath);
     RegisterModifier('Dir', _('Path without delimeter'), ExtractFileDir);
-    RegisterModifier('Name', _('File name'), ExtractFileName);
+    RegisterModifier('Name', _('File name'), TPath.GetFileName);
     RegisterModifier('Ext', _('File extension'), ExtractFileExt);
     RegisterModifier('ExtOnly', _('File extension without "."'), GetFileExt);
     RegisterModifier('NoExt', _('File name without extension'), StripExtension);
@@ -708,22 +703,18 @@ begin
   with Parameters do begin
     (* parameters, valid for current Windows configuration *)
     // Python Paths etc.
-    UnRegisterParameter('Python33Dir');
-    UnRegisterParameter('Python34Dir');
-    UnRegisterParameter('Python35Dir');
-    UnRegisterParameter('Python36Dir');
     UnRegisterParameter('Python37Dir');
     UnRegisterParameter('Python38Dir');
     UnRegisterParameter('Python39Dir');
     UnRegisterParameter('Python310Dir');
-    UnRegisterParameter('Python33Exe');
-    UnRegisterParameter('Python34Exe');
-    UnRegisterParameter('Python35Exe');
-    UnRegisterParameter('Python36Exe');
+    UnRegisterParameter('Python311Dir');
+    UnRegisterParameter('Python312Dir');
     UnRegisterParameter('Python37Exe');
     UnRegisterParameter('Python38Exe');
     UnRegisterParameter('Python39Exe');
     UnRegisterParameter('Python310Exe');
+    UnRegisterParameter('Python311Exe');
+    UnRegisterParameter('Python312Exe');
     UnRegisterParameter('PythonDir');
     UnRegisterParameter('PythonExe');
     UnRegisterParameter('PythonwExe');

@@ -27,9 +27,20 @@ type
       peRemoteWx,
       peSSH);       // SSH Python engine
 
+Const
+  // Defined DebugIDE events
+  dbie_user_call            = 0;
+  dbie_user_line            = 1;
+  dbie_user_thread          = 2;
+  dbie_user_exception       = 3;
+  dbie_user_yield           = 4;
+
 const
   EngineTypeName : array [TPythonEngineType] of string =
     ('Internal', 'Remote', 'Remote TK', 'Remote Wx', 'SSH');
+  FilePosInfoFormat : string = '%s (%d:%d)';
+  FilePosInfoRegExpr : string = '(.+) \((\d+):(\d+)\)$';
+
 
 type
   TEditorPos = record
@@ -144,7 +155,6 @@ begin
     ParseTraceback := True;
     CaptureOutput := True;
     ConsoleHidden := True;
-    WaitForTerminate := True;
   end;
 end;
 

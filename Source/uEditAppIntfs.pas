@@ -18,10 +18,12 @@ uses
   Vcl.Forms,
   Vcl.ImgList,
   JvAppStorage,
+  JclNotify,
+  JclSysUtils,
   PythonEngine,
+  PythonVersions,
   SynEdit,
-  SpTBXItem,
-  SpTBXTabs;
+  SpTBXItem;
 
 type
   TBreakPoint = class(TPersistent)
@@ -77,19 +79,21 @@ type
     function GetEditorState: string;
     function GetFileName: string;
     function GetFileTitle: string;
-    function GetFileNameOrTitle: string;
+    function GetFileId: string;
     function GetModified: Boolean;
     function GetFileEncoding : TFileSaveFormat;
     function GetForm : TForm;
+    function GetDocSymbols: TObject;
     function GetEncodedText : AnsiString;
-    function GetSourceScanner : IInterface;
-    function GetCodeExplorerData : IInterface;
     function GetTabControlIndex : integer;
     function GetReadOnly : Boolean;
     function GetRemoteFileName: string;
+    function GetHasSearchHighlight: Boolean;
     function GetSSHServer: string;
     procedure SetReadOnly(Value : Boolean);
+    procedure SetHasSearchHighlight(Value : Boolean);
     procedure SetFileEncoding(FileEncoding : TFileSaveFormat);
+    procedure SetHighlighter(const HighlighterName: string);
     procedure OpenFile(const AFileName: string; HighlighterName : string = '');
     procedure OpenRemoteFile(const FileName, ServerName: string);
     function SaveToRemoteFile(const FileName, ServerName: string) : Boolean;
@@ -98,20 +102,23 @@ type
     procedure SplitEditorHorizontally;
     procedure SplitEditorVertrically;
     procedure Retranslate;
-    property FileName : string read GetFileName;
+    procedure RefreshSymbols;
+    property FileName: string read GetFileName;
     property RemoteFileName : string read GetRemoteFileName;
-    property SSHServer : string read GetSSHServer;
-    property FileTitle : string read GetFileTitle;
-    property Modified : Boolean read GetModified;
-    property SynEdit : TSynEdit read GetSynEdit;
-    property SynEdit2 : TSynEdit read GetSynEdit2;
-    property ActiveSynEdit : TSynEdit read GetActiveSynEdit;
-    property BreakPoints : TObjectList read GetBreakPoints;
-    property FileEncoding : TFileSaveFormat read GetFileEncoding write SetFileEncoding;
-    property EncodedText : AnsiString read GetEncodedText;
-    property Form : TForm read GetForm;
-    property SourceScanner : IInterface read GetSourceScanner;  // IAsyncSourceScanner
-    property CodeExplorerData : IInterface read GetCodeExplorerdata; //ICodeExplorerData
+    property FileId: string read GetFileId;
+    property SSHServer: string read GetSSHServer;
+    property FileTitle: string read GetFileTitle;
+    property Modified: Boolean read GetModified;
+    property SynEdit: TSynEdit read GetSynEdit;
+    property SynEdit2: TSynEdit read GetSynEdit2;
+    property ActiveSynEdit: TSynEdit read GetActiveSynEdit;
+    property BreakPoints: TObjectList read GetBreakPoints;
+    property FileEncoding: TFileSaveFormat read GetFileEncoding write SetFileEncoding;
+    property EncodedText: AnsiString read GetEncodedText;
+    property Form: TForm read GetForm;
+    property DocSymbols: TObject read GetDocSymbols;
+    property HasSearchHighlight: Boolean read GetHasSearchHighlight
+      write SetHasSearchHighlight;
     property TabControlIndex : integer read GetTabControlIndex;
     property ReadOnly : Boolean read GetReadOnly write SetReadOnly;
   end;
@@ -120,17 +127,19 @@ type
   ['{FDAE7FBD-4B61-4D7C-BEE6-DB7740A225E8}']
     function CanCloseAll: Boolean;
     procedure CloseAll;
-    function CreateTabSheet(AOwner: TSpTBXCustomTabControl): IEditor;
+    function NewEditor(TabControlIndex:Integer = 1): IEditor;
     function GetEditorCount: integer;
     function GetEditor(Index: integer): IEditor;
     function GetEditorByName(const Name : string): IEditor;
-    function GetEditorByNameOrTitle(const Name : string): IEditor;
+    function GetEditorByFileId(const Name : string): IEditor;
     procedure RemoveEditor(AEditor: IEditor);
     function RegisterViewFactory(ViewFactory : IEditorViewFactory): integer;
     function GetViewFactoryCount: integer;
     function GetViewFactory(Index: integer): IEditorViewFactory;
     procedure SetupEditorViewsMenu(ViewsMenu: TSpTBXItem; IL: TCustomImageList);
     procedure UpdateEditorViewsMenu(ViewsMenu: TSpTBXItem);
+    procedure CreateRecoveryFiles;
+    procedure RecoverFiles;
     procedure LockList;
     procedure UnlockList;
     procedure ApplyToEditors(const Proc: TProc<IEditor>);
@@ -221,9 +230,12 @@ type
       Returns the active editor irrespective of whether it is has the focus
       If want the active editor with focus then use GI_ActiveEditor
     }
+    function ReplaceParams(const AText: string): string;
     function GetActiveEditor : IEditor;
+    function GetIsClosing: Boolean;
     procedure WriteStatusMsg(const S: string);
-    function ShowFilePosition(FileName : string; Line: integer =0;
+    function FileIsPythonSource(const FileName: string): Boolean;
+    function ShowFilePosition(FileName : string; Line: integer = 0;
       Offset : integer = 1; SelLen : integer = 0;
       ForceToMiddle : boolean = True; FocusEditor : boolean = True) : boolean;
     procedure ClearPythonWindows;
@@ -236,13 +248,23 @@ type
     function GetIDELayouts: IIDELayouts;
     function GetAppStorage: TJvCustomAppStorage;
     function GetLocalAppStorage: TJvCustomAppStorage;
+    function GetLogger: TJclSimpleLog;
     procedure MRUAddEditor(Editor: IEditor);
     property ActiveEditor: IEditor read GetActiveEditor;
+    property IsClosing: Boolean read GetIsClosing;
     property Messages: IMessageServices read GetMessageServices;
     property UnitTests: IUnitTestServices read GetUnitTestServices;
     property Layouts: IIDELayouts read GetIDELayouts;
     property AppStorage: TJvCustomAppStorage read GetAppStorage;
     property LocalAppStorage: TJvCustomAppStorage read GetLocalAppStorage;
+    property Logger: TJclSimpleLog read GetLogger;
+  end;
+
+  IPyEngineAndGIL = interface
+    function GetPyEngine: TPythonEngine;
+    function GetThreadState: PPyThreadState;
+    property PythonEngine: TPythonEngine read GetPyEngine;
+    property ThreadState: PPyThreadState read GetThreadState;
   end;
 
   IPyControl = interface
@@ -250,7 +272,15 @@ type
     function PythonLoaded: Boolean;
     function Running: boolean;
     function Inactive: boolean;
+    function GetPythonVersion: TPythonVersion;
+    function GetOnPythonVersionChange: TJclNotifyEventBroadcast;
     function AddPathToInternalPythonPath(const Path: string): IInterface;
+    function SafePyEngine: IPyEngineAndGIL;
+    procedure ThreadPythonExec(ExecuteProc : TProc; TerminateProc : TProc = nil;
+      WaitToFinish: Boolean = False; ThreadExecMode : TThreadExecMode = emNewState);
+    property PythonVersion: TPythonVersion read GetPythonVersion;
+    property OnPythonVersionChange: TJclNotifyEventBroadcast
+      read GetOnPythonVersionChange;
   end;
 
   TPyInterpreterPropmpt = (pipNormal, pipDebug, pipPostMortem);
@@ -272,10 +302,23 @@ type
     procedure SetPyInterpreterPrompt(Pip: TPyInterpreterPropmpt);
     procedure ReinitInterpreter;
     function GetPythonIO: TPythonInputOutput;
+    function GetEditor: TCustomSynEdit;
     function GetShowOutput: boolean;
     procedure SetShowOutput(const Value: boolean);
+    property Editor: TCustomSynEdit read GetEditor;
     property PythonIO: TPythonInputOutput read GetPythonIO;
     property ShowOutput: Boolean read GetShowOutput write SetShowOutput;
+  end;
+
+  ISSHServices = interface
+  ['{255E5E08-DCFD-481A-B0C3-F0AB0C5A1571}']
+    function FormatFileName(Server, FileName : string): string;
+    function ParseFileName(Const Unc : string; out Server, FileName : string): boolean;
+
+    function Scp(const ScpCommand, FromFile, ToFile: string; out ErrorMsg: string;
+       ScpOptions : string = ''): Boolean;
+    function ScpUpload(const ServerName, LocalFile, RemoteFile: string; out ErrorMsg: string): boolean;
+    function ScpDownload(const ServerName, RemoteFile, LocalFile: string; out ErrorMsg: string): boolean;
   end;
 
 var
@@ -289,6 +332,7 @@ var
   GI_PyIDEServices: IPyIDEServices;
   GI_PyControl: IPyControl;
   GI_PyInterpreter: IPyInterpreter;
+  GI_SSHServices: ISSHServices;
 
 implementation
 

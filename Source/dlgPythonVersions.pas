@@ -24,9 +24,12 @@ uses
   TB2Toolbar,
   SpTBXItem,
   TB2Item,
+  VirtualTrees.Types,
+  VirtualTrees.BaseAncestorVCL,
+  VirtualTrees.AncestorVCL,
+  VirtualTrees.BaseTree,
   VirtualTrees,
-  dlgPyIDEBase,
-  dmCommands;
+  dlgPyIDEBase;
 
 type
   TPythonVersionsDialog = class(TPyIDEDlgBase)
@@ -96,7 +99,8 @@ Uses
   uEditAppIntfs,
   uCommonFunctions,
   cPyControl,
-  PythonVersions;
+  PythonVersions,
+  dmResources;
 
 procedure TPythonVersionsDialog.actlPythonVersionsUpdate(Action: TBasicAction;
   var Handled: Boolean);
@@ -109,8 +113,9 @@ begin
   if Assigned(Node) then
     Level := vtPythonVersions.GetNodeLevel(Node);
   actPVActivate.Enabled := Assigned(Node) and (Level = 1) and
+   (not GI_PyControl.PythonLoaded or
     not (((Node.Parent.Index = 0) and (PyControl.PythonVersionIndex = integer(Node.Index))) or
-         ((Node.Parent.Index = 1) and (PyControl.PythonVersionIndex = -(Node.Index + 1))));
+         ((Node.Parent.Index = 1) and (PyControl.PythonVersionIndex = -(Node.Index + 1)))));
 
   actPVRemove.Enabled := Assigned(Node) and (Level = 1) and (Node.Parent.Index = 1) and
     not (PyControl.PythonVersionIndex = -(Node.Index + 1));
@@ -148,7 +153,9 @@ Var
 begin
   if SelectDirectory('', Directories, [], _('Select folder with Python installation (inlcuding virtualenv and venv)'))
   then begin
-    if PythonVersionFromPath(Directories[0], PythonVersion) then
+    if PythonVersionFromPath(Directories[0], PythonVersion, True,
+      PyControl.MinPyVersion, PyControl.MaxPyVersion)
+    then
     begin
       SetLength(PyControl.CustomPythonVersions, Length(PyControl.CustomPythonVersions) + 1);
       PyControl.CustomPythonVersions[Length(PyControl.CustomPythonVersions)-1] := PythonVersion;
@@ -196,7 +203,7 @@ begin
     if (Level = 1) and (Node.Parent.Index = 1) and
       not (PyControl.PythonVersionIndex = -(Node.Index + 1)) then
     begin
-      Delete(PyControl.CustomPythonVersions, Node.Index, 1);
+      PyControl.RemoveCustomVersion(Node.Index);
       vtPythonVersions.ReinitNode(Node.Parent, True);
     end;
   end;

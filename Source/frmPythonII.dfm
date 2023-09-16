@@ -43,8 +43,7 @@ inherited PythonIIForm: TPythonIIForm
     9C41F00F9C41F00F9C41F00F9C4180019C4100009C4100009C4100009C410000
     9C4100009C4100009C4180019C41F00F9C41F00F9C41F00F9C41F81F9C41}
   OnHelp = FormHelp
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   inherited BGPanel: TPanel
     Width = 701
     Height = 451
@@ -81,18 +80,33 @@ inherited PythonIIForm: TPythonIIForm
         Gutter.Font.Height = -11
         Gutter.Font.Name = 'Courier New'
         Gutter.Font.Style = []
+        Gutter.Font.Quality = fqClearTypeNatural
         Gutter.Visible = False
-        Gutter.Width = 0
         Gutter.Gradient = True
+        Gutter.Bands = <
+          item
+            Kind = gbkMarks
+            Width = 13
+          end
+          item
+            Kind = gbkLineNumbers
+          end
+          item
+            Kind = gbkFold
+          end
+          item
+            Kind = gbkMargin
+            Width = 3
+          end>
         Options = [eoDragDropEditing, eoEnhanceHomeKey, eoGroupUndo, eoHideShowScrollbars, eoKeepCaretX, eoShowScrollHint, eoTabIndent, eoTabsToSpaces]
         RightEdge = 0
+        SelectedColor.Alpha = 0.400000005960464500
         TabWidth = 4
         WantTabs = True
         WordWrap = True
         OnCommandProcessed = SynEditCommandProcessed
         OnProcessCommand = SynEditProcessCommand
         OnProcessUserCommand = SynEditProcessUserCommand
-        OnPaintTransient = SynEditPaintTransient
       end
     end
   end
@@ -113,6 +127,7 @@ inherited PythonIIForm: TPythonIIForm
       Tag = 1
       Caption = 'Python Versions'
       ImageIndex = 5
+      ImageName = 'Python'
       LinkSubitems = PyIDEMainForm.mnPythonVersions
     end
     object TBXPythonEngines: TSpTBXSubmenuItem
@@ -200,121 +215,100 @@ inherited PythonIIForm: TPythonIIForm
     end
   end
   object vilCodeImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 8
         CollectionName = 'CodeImages\Python'
-        Disabled = False
         Name = 'Python'
       end
       item
         CollectionIndex = 9
         CollectionName = 'CodeImages\Variable'
-        Disabled = False
         Name = 'Variable'
       end
       item
         CollectionIndex = 1
         CollectionName = 'CodeImages\Field'
-        Disabled = False
         Name = 'Field'
       end
       item
         CollectionIndex = 2
         CollectionName = 'CodeImages\Function'
-        Disabled = False
         Name = 'Function'
       end
       item
         CollectionIndex = 5
         CollectionName = 'CodeImages\Method'
-        Disabled = False
         Name = 'Method'
       end
       item
         CollectionIndex = 0
         CollectionName = 'CodeImages\Class'
-        Disabled = False
         Name = 'Class'
       end
       item
         CollectionIndex = 7
         CollectionName = 'CodeImages\Namespace'
-        Disabled = False
         Name = 'Namespace'
       end
       item
         CollectionIndex = 4
         CollectionName = 'CodeImages\List'
-        Disabled = False
         Name = 'List'
       end
       item
         CollectionIndex = 6
         CollectionName = 'CodeImages\Module'
-        Disabled = False
         Name = 'Module'
       end
       item
         CollectionIndex = 3
         CollectionName = 'CodeImages\Keyword'
-        Disabled = False
         Name = 'Keyword'
       end>
-    ImageCollection = CommandsDataModule.icCodeImages
+    ImageCollection = ResourcesDataModule.icCodeImages
     PreserveItems = True
     Left = 40
     Top = 160
   end
   object vilImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 17
         CollectionName = 'Cut'
-        Disabled = False
         Name = 'Cut'
       end
       item
         CollectionIndex = 16
         CollectionName = 'Copy'
-        Disabled = False
         Name = 'Copy'
       end
       item
-        CollectionIndex = 64
+        CollectionIndex = 65
         CollectionName = 'Paste'
-        Disabled = False
         Name = 'Paste'
       end
       item
         CollectionIndex = 21
         CollectionName = 'Delete'
-        Disabled = False
         Name = 'Delete'
       end
       item
         CollectionIndex = 27
         CollectionName = 'EditOptions'
-        Disabled = False
         Name = 'EditOptions'
       end
       item
-        CollectionIndex = 83
+        CollectionIndex = 84
         CollectionName = 'Python'
-        Disabled = False
         Name = 'Python'
       end
       item
-        CollectionIndex = 80
+        CollectionIndex = 81
         CollectionName = 'PySetup'
-        Disabled = False
         Name = 'PySetup'
       end>
-    ImageCollection = CommandsDataModule.icSVGImages
+    ImageCollection = ResourcesDataModule.icSVGImages
     PreserveItems = True
     Width = 20
     Height = 20

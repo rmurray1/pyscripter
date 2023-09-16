@@ -17,7 +17,7 @@ uses
   System.SysUtils,
   System.Classes,
   System.Threading,
-  JclSysUtils,
+  uSysUtils,
   PythonEngine,
   cPyBaseDebugger,
   cPyDebugger,
@@ -40,7 +40,7 @@ type
     fSSHOptions : string;
     function ProcessPlatformInfo(Info: string; out Is3k: Boolean;
       out Sep: Char; out TempDir: string): boolean;
-    procedure StoreTunnelProcessInfo(const ProcessInfo: TProcessInformation; InWritePipe: THandle);
+    procedure StoreTunnelProcessInfo(const ProcessInfo: TProcessInformation; InWritePipe: PHandle);
   protected
     function SystemTempFolder: string; override;
     procedure CreateAndRunServerProcess; override;
@@ -71,6 +71,7 @@ Uses
   cPySupportTypes,
   cPyScripterSettings,
   System.StrUtils,
+  uEditAppIntfs,
   uCommonFunctions,
   cPyControl,
   MPCommonUtilities;
@@ -197,11 +198,11 @@ begin
   fServerIsAvailable := False;
   // Upload server and rpyc files
   fRemServerFile := TempDir + PathSeparator + RemoteServerBaseName;
-  if not ScpUpload(SSHServerName, fServerFile, fRemServerFile, ErrorMsg) then
+  if not GI_SSHServices.ScpUpload(SSHServerName, fServerFile, fRemServerFile, ErrorMsg) then
     fRemServerFile := ''
   else begin
     fRemRpycFile :=  TempDir + PathSeparator + RpycZipModule;
-    if not ScpUpload(SSHServerName, fRpycPath, fRemRpycFile, ErrorMsg) then
+    if not GI_SSHServices.ScpUpload(SSHServerName, fRpycPath, fRemRpycFile, ErrorMsg) then
       fRemRpycFile := '';
   end;
 
@@ -335,8 +336,8 @@ begin
   TunnelTask := nil;
 end;
 
-procedure TPySSHInterpreter.StoreTunnelProcessInfo(
-  const ProcessInfo: TProcessInformation; InWritePipe: THandle);
+procedure TPySSHInterpreter.StoreTunnelProcessInfo(const ProcessInfo:
+    TProcessInformation; InWritePipe: PHandle);
 begin
   TunnelProcessInfo := ProcessInfo;
 end;

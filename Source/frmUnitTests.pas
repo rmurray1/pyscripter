@@ -15,7 +15,6 @@ uses
   Vcl.Controls,
   Vcl.Forms,
   Vcl.Dialogs,
-  Vcl.ComCtrls,
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
   Vcl.ImgList,
@@ -25,6 +24,10 @@ uses
   SVGIconImageCollection,
   JvComponentBase,
   JvDockControlForm,
+  VirtualTrees.Types,
+  VirtualTrees.BaseAncestorVCL,
+  VirtualTrees.AncestorVCL,
+  VirtualTrees.BaseTree,
   VirtualTrees,
   TB2Item,
   TB2Dock,
@@ -33,9 +36,8 @@ uses
   SpTBXControls,
   SpTBXItem,
   SpTBXSkins,
-  dmCommands,
   uEditAppIntfs,
-  frmIDEDockWin;
+  frmIDEDockWin, SynEdit;
 
 type
   TUnitTestWindowStatus = (utwEmpty, utwLoaded, utwRunning, utwRun);
@@ -76,10 +78,10 @@ type
     lblRunTests: TLabel;
     lblFailures: TLabel;
     SpTBXPanel1: TPanel;
-    ErrorText: TRichEdit;
     vilRunImages: TVirtualImageList;
     vilImages: TVirtualImageList;
     icRunImages: TSVGIconImageCollection;
+    ErrorText: TSynEdit;
     procedure UnitTestsDblClick(Sender: TObject);
     procedure actStopExecute(Sender: TObject);
     procedure actClearAllExecute(Sender: TObject);
@@ -136,18 +138,18 @@ var
 implementation
 
 uses
+  System.StrUtils,
   Vcl.Themes,
-  JclSysUtils,
   JvJVCLUtils,
   JvGnugettext,
   PythonEngine,
   VarPyth,
   StringResources,
   uCommonFunctions,
-  cInternalPython,
   cPyBaseDebugger,
   cPyDebugger,
-  cPyControl;
+  cPyControl,
+  dmResources;
 
 {$R *.dfm}
 
@@ -180,7 +182,7 @@ Var
   PyTestCase : PPyObject;
   TestCount : integer;
 begin
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   ClearAll;
   Editor := GI_PyIDEServices.ActiveEditor;
   if Assigned(Editor) then begin
@@ -191,7 +193,7 @@ begin
 
     Module := PyControl.ActiveInterpreter.ImportModule(Editor);
     UnitTest := PyControl.ActiveInterpreter.EvalCode('__import__("unittest")');
-    TestSuite := UnitTest.findTestCases(Module);
+    TestSuite := UnitTest.defaultTestLoader.loadTestsFromModule(Module);
     //  This TestSuite contains a list of TestSuites
     //  each of which contains TestCases corresponding to
     //  a TestCase class in the module!!!
@@ -225,7 +227,7 @@ begin
     end else begin
       UnitTests.RootNodeCount := TestClasses.Count;
       UnitTests.ReinitNode(UnitTests.RootNode, True);
-      lbFoundTests.Caption := Format(FoundTestsLabel, [TestCount, Iff(TestCount=1, '', 's')]);
+      lbFoundTests.Caption := Format(FoundTestsLabel, [TestCount, IfThen(TestCount=1, '', 's')]);
       Status := utwLoaded;
       actSelectAllExecute(Self);
     end;
@@ -273,7 +275,7 @@ begin
   UnitTests.Clear;
   if (TestClasses.Count > 0) or VarIsPython(TestSuite) then
   begin
-    var Py := SafePyEngine;
+    var Py := GI_PyControl.SafePyEngine;
 
     for i := 0 to TestClasses.Count - 1 do begin
       SL := TStringList(TestClasses.Objects[i]);
@@ -292,7 +294,7 @@ begin
   TestsFailed := 0;
   TestErrors := 0;
   ElapsedTime := 0;
-  lblRunTests.Caption := Format(RunTestsLabel, [TestsRun, Iff(TestsRun=1, '', 's'), '']);
+  lblRunTests.Caption := Format(RunTestsLabel, [TestsRun, IfThen(TestsRun=1, '', 's'), '']);
   lblFailures.Caption := Format(FailuresLabel, [TestsFailed, TestErrors]);
 
   ModuleName.Caption := 'No Module Loaded';
@@ -306,7 +308,7 @@ end;
 procedure TUnitTestWindow.UnitTestsInitNode(Sender: TBaseVirtualTree;
   ParentNode, Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
 begin
-  if UnitTests.GetNodeLevel(Node) = 0 then begin
+  if ParentNode = nil then begin
     Node.CheckType := ctTriStateCheckBox;
     if TStringList(TestClasses.Objects[Node.Index]).Count > 0 then
       InitialStates := [ivsHasChildren, ivsExpanded]
@@ -350,7 +352,7 @@ begin
       ImageIndex := 6
     else
       ImageIndex := 5;
-  end else with SafePyEngine.PythonEngine do begin
+  end else with GI_PyControl.SafePyEngine.PythonEngine do begin
     PyTestCase := PPyObject(TStringList(TestClasses.Objects[Node.Parent.Index]).Objects[Node.Index]);
     PytestStatus := PyObject_GetAttrString(PyTestCase, 'testStatus');
     CheckError;
@@ -367,7 +369,7 @@ var
   TestCase : Variant;
 begin
   HintText := '';
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   if UnitTests.GetNodeLevel(Node) = 0 then begin
     if Assigned(Node.FirstChild) then begin
       PyTestCase := PPyObject(TStringList(TestClasses.Objects[Node.Index]).Objects[0]);
@@ -388,7 +390,7 @@ procedure TUnitTestWindow.UnitTestsChecked(Sender: TBaseVirtualTree;
   Node: PVirtualNode);
 begin
   if (UnitTests.GetNodeLevel(Node) = 1) and (vsInitialized in Node.States) then begin
-    var Py := SafePyEngine;
+    var Py := GI_PyControl.SafePyEngine;
     var PyTestCase := PPyObject(TStringList(TestClasses.Objects[Node.Parent.Index]).Objects[Node.Index]);
     var TestCase: Variant := VarPythonCreate(PyTestCase);
     TestCase.enabled := Node.CheckState in [csCheckedNormal, csCheckedPressed];
@@ -424,7 +426,7 @@ Var
 begin
   actDeselectAllExecute(Sender);
 
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   ClassNode := UnitTests.RootNode^.FirstChild;
   while Assigned(ClassNode) do begin
     TestCaseNode := ClassNode.FirstChild;
@@ -462,7 +464,7 @@ begin
   // Only allow when PyControl.ActiveDebugger is inactive
   if not GI_PyControl.Inactive then Exit;
 
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   UnitTestModule := PyControl.ActiveInterpreter.EvalCode('__import__("unittest")');
 
   //  Create a TempTestSuite that contains only the checked tests
@@ -488,7 +490,7 @@ begin
   TestsFailed := 0;
   TestErrors := 0;
   ElapsedTime := 0;
-  lblRunTests.Caption := Format(RunTestsLabel, [TestsRun, Iff(TestsRun=1, '', 's'), '']);
+  lblRunTests.Caption := Format(RunTestsLabel, [TestsRun, IfThen(TestsRun=1, '', 's'), '']);
   lblFailures.Caption := Format(FailuresLabel, [TestsFailed, TestErrors]);
 
   Status := utwRunning;
@@ -513,7 +515,7 @@ begin
     Status := utwRun;
     PyControl.DebuggerState := dsInactive;
     lblRunTests.Caption := Format(RunTestsLabel,
-      [TestsRun, Iff(TestsRun=1, '', 's'), Format(ElapsedTimeFormat, [ElapsedTime])]);
+      [TestsRun, IfThen(TestsRun=1, '', 's'), Format(ElapsedTimeFormat, [ElapsedTime])]);
   end;
 end;
 
@@ -552,7 +554,7 @@ procedure TUnitTestWindow.StopTest(Test: Variant);
 // Called from IDETestResult
 begin
   Inc(TestsRun);
-  lblRunTests.Caption := Format(RunTestsLabel, [TestsRun, Iff(TestsRun=1, '', 's'), '']);
+  lblRunTests.Caption := Format(RunTestsLabel, [TestsRun, IfThen(TestsRun=1, '', 's'), '']);
   Application.ProcessMessages;
 end;
 
@@ -614,17 +616,16 @@ end;
 procedure TUnitTestWindow.UnitTestsChange(Sender: TBaseVirtualTree;
   Node: PVirtualNode);
 begin
+  ErrorText.Clear;
   if Assigned(Node) and (vsSelected in Node.States) and
     (UnitTests.GetNodeLevel(Node) = 1) then
   begin
-    var Py := SafePyEngine;
+    var Py := GI_PyControl.SafePyEngine;
     var PyTestCase := PPyObject(TStringList(TestClasses.Objects[Node.Parent.Index]).Objects[Node.Index]);
     var TestCase: Variant := VarPythonCreate(PyTestCase);
     ErrorText.Text := TestCase.errMsg;
     VarClear(TestCase);
-  end
-  else
-    ErrorText.Text := '';
+  end;
 end;
 
 procedure TUnitTestWindow.actClearAllExecute(Sender: TObject);
@@ -683,6 +684,8 @@ begin
   finally
     icRunImages.SVGIconItems.EndUpdate;
   end;
+  ErrorText.Font.Color := StyleServices.GetSystemColor(clWindowText);
+  ErrorText.Color := StyleServices.GetSystemColor(clWindow);
 end;
 
 procedure TUnitTestWindow.actStopExecute(Sender: TObject);
@@ -708,7 +711,7 @@ begin
       Node := Node.FirstChild;
     if (NodeLevel > 1)  or not Assigned(Node) then Exit;
 
-    Py := SafePyEngine;
+    Py := GI_PyControl.SafePyEngine;
     PyTestCase := PPyObject(TStringList(TestClasses.Objects[Node.Parent.Index]).Objects[Node.Index]);
     TestCase := VarPythonCreate(PyTestCase);
     if NodeLevel = 0 then

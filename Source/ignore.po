@@ -216,3 +216,10 @@ msgstr ""
 
 msgid "pyscripter@gmail.com"
 msgstr ""
+
+msgid "sync_request_timeout"
+msgstr ""
+
+msgid "()[]{}<>"
+msgstr ""
+

@@ -40,8 +40,7 @@ inherited WatchesWindow: TWatchesWindow
     72FFCF9971FFCE986FFFCB956EFFC9936BFFC39679F4A670516B000000000000
     0000000000000000000000000000000000000000000000000000000000000000
     000000000000000000000000000000000000000000000000000000000000}
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   inherited BGPanel: TPanel
     Width = 760
     Height = 229
@@ -86,6 +85,8 @@ inherited WatchesWindow: TWatchesWindow
           OnInitChildren = WatchesViewInitChildren
           OnInitNode = WatchesViewInitNode
           OnKeyDown = WatchesViewKeyDown
+          Touch.InteractiveGestures = [igPan, igPressAndTap]
+          Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
           Columns = <
             item
               Position = 0
@@ -118,20 +119,24 @@ inherited WatchesWindow: TWatchesWindow
     object mnAddWatch: TSpTBXItem
       Caption = '&Add Watch'
       ImageIndex = 2
+      ImageName = 'Plus'
       OnClick = mnAddWatchClick
     end
     object TBXItem1: TSpTBXItem
       Action = PyIDEMainForm.actAddWatchAtCursor
       ImageIndex = 4
+      ImageName = 'Watch'
     end
     object mnRemoveWatch: TSpTBXItem
       Caption = '&Remove Watch'
       ImageIndex = 3
+      ImageName = 'Minus'
       OnClick = mnRemoveWatchClick
     end
     object mnEditWatch: TSpTBXItem
       Caption = '&Edit Watch'
       ImageIndex = 5
+      ImageName = 'Edit'
       OnClick = mnEditWatchClick
     end
     object TBXSeparatorItem1: TSpTBXSeparatorItem
@@ -140,6 +145,7 @@ inherited WatchesWindow: TWatchesWindow
       Caption = '&Clear all'
       Hint = 'Clear all watches'
       ImageIndex = 1
+      ImageName = 'Delete'
       OnClick = mnClearAllClick
     end
     object TBXSeparatorItem2: TSpTBXSeparatorItem
@@ -148,119 +154,100 @@ inherited WatchesWindow: TWatchesWindow
       Caption = 'Co&py to Clipboard'
       Hint = 'Copy to clipboard'
       ImageIndex = 0
+      ImageName = 'Copy'
       OnClick = mnCopyToClipboardClick
     end
   end
   object vilCodeImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 8
         CollectionName = 'CodeImages\Python'
-        Disabled = False
         Name = 'Python'
       end
       item
         CollectionIndex = 9
         CollectionName = 'CodeImages\Variable'
-        Disabled = False
         Name = 'Variable'
       end
       item
         CollectionIndex = 1
         CollectionName = 'CodeImages\Field'
-        Disabled = False
         Name = 'Field'
       end
       item
         CollectionIndex = 2
         CollectionName = 'CodeImages\Function'
-        Disabled = False
         Name = 'Function'
       end
       item
         CollectionIndex = 5
         CollectionName = 'CodeImages\Method'
-        Disabled = False
         Name = 'Method'
       end
       item
         CollectionIndex = 0
         CollectionName = 'CodeImages\Class'
-        Disabled = False
         Name = 'Class'
       end
       item
         CollectionIndex = 7
         CollectionName = 'CodeImages\Namespace'
-        Disabled = False
         Name = 'Namespace'
       end
       item
         CollectionIndex = 4
         CollectionName = 'CodeImages\List'
-        Disabled = False
         Name = 'List'
       end
       item
         CollectionIndex = 6
         CollectionName = 'CodeImages\Module'
-        Disabled = False
         Name = 'Module'
       end
       item
         CollectionIndex = 3
         CollectionName = 'CodeImages\Keyword'
-        Disabled = False
         Name = 'Keyword'
       end>
-    ImageCollection = CommandsDataModule.icCodeImages
+    ImageCollection = ResourcesDataModule.icCodeImages
     PreserveItems = True
     Left = 24
     Top = 136
   end
   object vilImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 16
         CollectionName = 'Copy'
-        Disabled = False
         Name = 'Copy'
       end
       item
         CollectionIndex = 21
         CollectionName = 'Delete'
-        Disabled = False
         Name = 'Delete'
       end
       item
-        CollectionIndex = 67
+        CollectionIndex = 68
         CollectionName = 'Plus'
-        Disabled = False
         Name = 'Plus'
       end
       item
-        CollectionIndex = 61
+        CollectionIndex = 62
         CollectionName = 'Minus'
-        Disabled = False
         Name = 'Minus'
       end
       item
-        CollectionIndex = 132
+        CollectionIndex = 135
         CollectionName = 'Watch'
-        Disabled = False
         Name = 'Watch'
       end
       item
         CollectionIndex = 24
         CollectionName = 'Edit'
-        Disabled = False
         Name = 'Edit'
       end>
-    ImageCollection = CommandsDataModule.icSVGImages
+    ImageCollection = ResourcesDataModule.icSVGImages
     PreserveItems = True
     Width = 20
     Height = 20

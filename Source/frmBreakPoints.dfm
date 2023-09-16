@@ -40,8 +40,7 @@ inherited BreakPointsWindow: TBreakPointsWindow
     3EE0D9983EE0D9983EE0D9983EE0D9983EE0D9983EE0D3953FCDC28A455C0000
     0000000000000000000000000000000000000000000000000000000000000000
     000000000000000000000000000000000000000000000000000000000000}
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   inherited BGPanel: TPanel
     Width = 379
     Height = 244
@@ -71,6 +70,7 @@ inherited BreakPointsWindow: TBreakPointsWindow
           PopupMenu = TBXPopupMenu
           TabOrder = 0
           TreeOptions.AnimationOptions = [toAnimatedToggle]
+          TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoTristateTracking, toAutoHideButtons, toAutoDeleteMovedNodes, toAutoChangeScale]
           TreeOptions.MiscOptions = [toCheckSupport, toFullRepaintOnResize, toInitOnSave, toReportMode, toToggleOnDblClick, toWheelPanning]
           TreeOptions.PaintOptions = [toHideSelection, toHotTrack, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection]
           TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toRightClickSelect]
@@ -80,6 +80,8 @@ inherited BreakPointsWindow: TBreakPointsWindow
           OnGetText = BreakPointsViewGetText
           OnInitNode = BreakPointsViewInitNode
           OnKeyDown = BreakPointsViewKeyDown
+          Touch.InteractiveGestures = [igPan, igPressAndTap]
+          Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
           Columns = <
             item
               Position = 0
@@ -130,26 +132,23 @@ inherited BreakPointsWindow: TBreakPointsWindow
       Caption = 'Co&py to Clipboard'
       Hint = 'Copy to clipboard'
       ImageIndex = 0
+      ImageName = 'Copy'
       OnClick = mnCopyToClipboardClick
     end
   end
   object vilImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 16
         CollectionName = 'Copy'
-        Disabled = False
         Name = 'Copy'
       end
       item
         CollectionIndex = 7
         CollectionName = 'BreakpointsRemove'
-        Disabled = False
         Name = 'BreakpointsRemove'
       end>
-    ImageCollection = CommandsDataModule.icSVGImages
+    ImageCollection = ResourcesDataModule.icSVGImages
     PreserveItems = True
     Width = 20
     Height = 20

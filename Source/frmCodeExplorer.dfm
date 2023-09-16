@@ -3,8 +3,6 @@ inherited CodeExplorerWindow: TCodeExplorerWindow
   Top = 237
   HelpContext = 430
   Caption = 'Code Explorer'
-  ClientHeight = 306
-  ClientWidth = 249
   Icon.Data = {
     0000010001001010000001002000280400001600000028000000100000002000
     0000010020000000000000000000000000000000000000000000000000000000
@@ -40,27 +38,22 @@ inherited CodeExplorerWindow: TCodeExplorerWindow
     3EE0D9983EE0D9983EE0D9983EE0D9983EE0D9983EE0D3953FCDC28A455C0000
     0000000000000000000000000000078AA723108FB1F3078AA723000000000000
     000000000000000000000000000000000000000000000000000000000000}
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   inherited BGPanel: TPanel
-    Width = 249
-    Height = 306
     inherited FGPanel: TPanel
-      Width = 245
-      Height = 302
       object Panel1: TPanel
         Left = 0
         Top = 0
-        Width = 245
-        Height = 302
+        Width = 223
+        Height = 394
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 0
         object ExplorerTree: TVirtualStringTree
           Left = 0
           Top = 0
-          Width = 245
-          Height = 302
+          Width = 223
+          Height = 394
           Align = alClient
           BorderStyle = bsNone
           Colors.UnfocusedColor = clHighlightText
@@ -72,6 +65,7 @@ inherited CodeExplorerWindow: TCodeExplorerWindow
           Images = vilCodeImages
           IncrementalSearch = isAll
           TabOrder = 0
+          TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoTristateTracking, toAutoDeleteMovedNodes, toAutoChangeScale]
           TreeOptions.MiscOptions = [toFullRepaintOnResize, toInitOnSave, toWheelPanning]
           TreeOptions.PaintOptions = [toHotTrack, toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection]
           TreeOptions.SelectionOptions = [toRightClickSelect]
@@ -88,11 +82,13 @@ inherited CodeExplorerWindow: TCodeExplorerWindow
           OnInitNode = ExplorerTreeInitNode
           OnKeyPress = ExplorerTreeKeyPress
           OnScroll = ExplorerTreeScroll
+          Touch.InteractiveGestures = [igPan, igPressAndTap]
+          Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
           Columns = <
             item
               Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coVisible, coSmartResize, coAllowFocus, coStyleColor]
               Position = 0
-              Width = 245
+              Width = 223
             end>
         end
       end
@@ -107,6 +103,7 @@ inherited CodeExplorerWindow: TCodeExplorerWindow
       Hint = 'Expand all nodes'
       HelpContext = 430
       ImageIndex = 0
+      ImageName = 'Expand'
       OnClick = mnExpandAllClick
     end
     object nCollapseAll: TSpTBXItem
@@ -114,6 +111,7 @@ inherited CodeExplorerWindow: TCodeExplorerWindow
       Hint = 'Collapse all nodes'
       HelpContext = 430
       ImageIndex = 1
+      ImageName = 'Collapse'
       OnClick = nCollapseAllClick
     end
     object SpTBXSeparatorItem1: TSpTBXSeparatorItem
@@ -164,101 +162,85 @@ inherited CodeExplorerWindow: TCodeExplorerWindow
       Hint = 'Highlight References'
       HelpContext = 430
       ImageIndex = 2
+      ImageName = 'Highlight'
       OnClick = mnHighlightClick
     end
   end
   object vilCodeImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 8
         CollectionName = 'CodeImages\Python'
-        Disabled = False
         Name = 'Python'
       end
       item
         CollectionIndex = 9
         CollectionName = 'CodeImages\Variable'
-        Disabled = False
         Name = 'Variable'
       end
       item
         CollectionIndex = 1
         CollectionName = 'CodeImages\Field'
-        Disabled = False
         Name = 'Field'
       end
       item
         CollectionIndex = 2
         CollectionName = 'CodeImages\Function'
-        Disabled = False
         Name = 'Function'
       end
       item
         CollectionIndex = 5
         CollectionName = 'CodeImages\Method'
-        Disabled = False
         Name = 'Method'
       end
       item
         CollectionIndex = 0
         CollectionName = 'CodeImages\Class'
-        Disabled = False
         Name = 'Class'
       end
       item
         CollectionIndex = 7
         CollectionName = 'CodeImages\Namespace'
-        Disabled = False
         Name = 'Namespace'
       end
       item
         CollectionIndex = 4
         CollectionName = 'CodeImages\List'
-        Disabled = False
         Name = 'List'
       end
       item
         CollectionIndex = 6
         CollectionName = 'CodeImages\Module'
-        Disabled = False
         Name = 'Module'
       end
       item
         CollectionIndex = 3
         CollectionName = 'CodeImages\Keyword'
-        Disabled = False
         Name = 'Keyword'
       end>
-    ImageCollection = CommandsDataModule.icCodeImages
+    ImageCollection = ResourcesDataModule.icCodeImages
     PreserveItems = True
     Left = 24
     Top = 176
   end
   object vilImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 31
         CollectionName = 'Expand'
-        Disabled = False
         Name = 'Expand'
       end
       item
         CollectionIndex = 15
         CollectionName = 'Collapse'
-        Disabled = False
         Name = 'Collapse'
       end
       item
         CollectionIndex = 53
         CollectionName = 'Highlight'
-        Disabled = False
         Name = 'Highlight'
       end>
-    ImageCollection = CommandsDataModule.icSVGImages
+    ImageCollection = ResourcesDataModule.icSVGImages
     PreserveItems = True
     Width = 20
     Height = 20

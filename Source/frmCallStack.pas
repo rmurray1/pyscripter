@@ -33,14 +33,17 @@ uses
   SpTBXItem,
   SpTBXControls,
   SpTBXDkPanels,
+  VirtualTrees.Types,
+  VirtualTrees.BaseAncestorVCL,
+  VirtualTrees.AncestorVCL,
+  VirtualTrees.BaseTree,
   VirtualTrees,
   frmIDEDockWin,
-  dmCommands,
   cPyControl,
   cPyBaseDebugger;
 
 type
-  TCallStackWindow = class(TIDEDockWindow, IJvAppStorageHandler)
+  TCallStackWindow = class(TIDEDockWindow)
     CallStackView: TVirtualStringTree;
     actlCallStack: TActionList;
     actPreviousFrame: TAction;
@@ -75,17 +78,17 @@ type
     procedure ThreadViewGetCellText(Sender: TCustomVirtualStringTree;
       var E: TVSTGetCellTextEventArgs);
   private
-    { Private declarations }
-    fActiveThread : TThreadInfo;
+    const FBasePath = 'Call Stack Window Options'; // Used for storing settings
+    var fActiveThread : TThreadInfo;
     fThreads : TList<TThreadInfo>;
     procedure ThreadChangeNotify(Thread : TThreadInfo; ChangeType : TThreadChangeType);
     procedure UpdateCallStack;
     procedure SetActiveThread(const Value: TThreadInfo);
-  protected
-    procedure ReadFromAppStorage(AppStorage: TJvCustomAppStorage; const BasePath: string);
-    procedure WriteToAppStorage(AppStorage: TJvCustomAppStorage; const BasePath: string);
   public
-    { Public declarations }
+    // AppStorage
+    procedure StoreSettings(AppStorage: TJvCustomAppStorage); override;
+    procedure RestoreSettings(AppStorage: TJvCustomAppStorage); override;
+
     procedure ClearAll(IncludeThreads : Boolean = True);
     function GetSelectedStackFrame : TBaseFrameInfo;
     procedure UpdateWindow(DebuggerState, OldState : TDebuggerState);
@@ -105,7 +108,7 @@ uses
   uCommonFunctions,
   uEditAppIntfs,
   cPySupportTypes,
-  cInternalPython;
+  dmResources;
 
 {$R *.dfm}
 
@@ -121,7 +124,7 @@ type
 { TCallStackWindow }
 
 procedure TCallStackWindow.UpdateCallStack;
-Var
+var
   FirstNode : PVirtualNode;
   FrameData : PFrameData;
   Editor : IEditor;
@@ -129,10 +132,10 @@ begin
   if Assigned(fActiveThread) and (fActiveThread.CallStack.Count > 0) then begin
     CallStackView.BeginUpdate;
     try
-      CallStackView.Clear;
       // OutputDebugString('Call Stack filled');
+      var Py := GI_PyControl.SafePyEngine;
       CallStackView.RootNodeCount := fActiveThread.CallStack.Count;  // Fills the View
-      CallStackView.ValidateNode(nil, True);
+      CallStackView.ReInitNode(nil, True, True);
     finally
       CallStackView.EndUpdate;
     end;
@@ -145,7 +148,7 @@ begin
 
       // Now Show the Current debugger position
       FrameData := FirstNode.GetData;
-      Editor := GI_EditorFactory.GetEditorByNameOrTitle(FrameData.FileName);
+      Editor := GI_EditorFactory.GetEditorByFileId(FrameData.FileName);
       if Assigned(Editor) then
         PyControl.CurrentPos := TEditorPos.NPos(Editor, FrameData.Line);
     end;
@@ -231,7 +234,7 @@ end;
 procedure TCallStackWindow.CallStackViewAddToSelection(Sender: TBaseVirtualTree;
   Node: PVirtualNode);
 begin
-  if Assigned(Node) and not (tsUpdating in CallStackView.TreeStates) then
+  if Assigned(Node) and not CallStackView.IsUpdating then
   begin
     Assert(Assigned(fActiveThread));
     Assert(Integer(Node.Index) < fActiveThread.CallStack.Count);
@@ -244,7 +247,7 @@ begin
 end;
 
 procedure TCallStackWindow.CallStackViewDblClick(Sender: TObject);
-Var
+var
   SelectedNode : PVirtualNode;
   FrameData : PFrameData;
 begin
@@ -260,7 +263,7 @@ end;
 
 procedure TCallStackWindow.CallStackViewFreeNode(Sender: TBaseVirtualTree;
   Node: PVirtualNode);
-Var
+var
   FrameData : PFrameData;
 begin
   FrameData := Node.GetData;
@@ -308,12 +311,11 @@ end;
 
 procedure TCallStackWindow.CallStackViewGetCellText(
   Sender: TCustomVirtualStringTree; var E: TVSTGetCellTextEventArgs);
-Var
+var
   FrameData : PFrameData;
 begin
   Assert(CallStackView.GetNodeLevel(E.Node) = 0);
   Assert(Assigned(fActiveThread));
-  Assert(Integer(E.Node.Index) < fActiveThread.CallStack.Count);
   FrameData := E.Node.GetData;
   case E.Column of
     0:  E.CellText := FrameData.Func;
@@ -335,10 +337,10 @@ end;
 
 procedure TCallStackWindow.CallStackViewInitNode(Sender: TBaseVirtualTree;
   ParentNode, Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
-Var
+var
   FrameData : PFrameData;
 begin
-  Assert(CallStackView.GetNodeLevel(Node) = 0);
+  Assert(ParentNode = nil);
   Assert(Assigned(fActiveThread));
   Assert(Integer(Node.Index) < fActiveThread.CallStack.Count);
   FrameData := Node.GetData;
@@ -351,7 +353,7 @@ begin
 end;
 
 function TCallStackWindow.GetSelectedStackFrame: TBaseFrameInfo;
-Var
+var
   SelectedNode : PVirtualNode;
 begin
   Result := nil;
@@ -371,7 +373,7 @@ procedure TCallStackWindow.ThreadChangeNotify(Thread: TThreadInfo;
   selected and the Variables and Watches Windows are updated as well
 }
   function NodeFromThread(T : TThreadInfo) : PVirtualNode;
-  Var
+  var
     I : Integer;
     N : PVirtualNode;
   begin
@@ -384,14 +386,14 @@ procedure TCallStackWindow.ThreadChangeNotify(Thread: TThreadInfo;
         end;
   end;
 
-Var
+var
   Index : integer;
   Node,
   Node1 : PVirtualNode;
   T : TThreadInfo;
 begin
   // OutputDebugString(PChar(Format('status: %d change: %d', [Ord(Thread.Status), Ord(ChangeType)])));
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   case ChangeType of
     tctAdded:
       begin
@@ -457,7 +459,6 @@ end;
 procedure TCallStackWindow.ThreadViewAddToSelection(Sender: TBaseVirtualTree;
   Node: PVirtualNode);
 begin
-  Assert(ThreadView.GetNodeLevel(Node) = 0);
   Assert(Integer(Node.Index) < fThreads.Count);
   if (fThreads[Node.Index].Status = thrdBroken) and
     (fActiveThread <> fThreads[Node.Index]) then
@@ -470,7 +471,6 @@ end;
 procedure TCallStackWindow.ThreadViewGetCellText(
   Sender: TCustomVirtualStringTree; var E: TVSTGetCellTextEventArgs);
 begin
-  Assert(ThreadView.GetNodeLevel(E.Node) = 0);
   Assert(Integer(E.Node.Index) < fThreads.Count);
   E.CellText := fThreads[E.Node.Index].Name;
 end;
@@ -479,7 +479,6 @@ procedure TCallStackWindow.ThreadViewGetImageIndex(Sender: TBaseVirtualTree;
   Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
   var Ghosted: Boolean; var ImageIndex: TImageIndex);
 begin
-  Assert(ThreadView.GetNodeLevel(Node) = 0);
   Assert(Integer(Node.Index) < fThreads.Count);
   if Kind in [ikNormal, ikSelected] then begin
     if fThreads[Node.Index].Status = thrdRunning then
@@ -490,26 +489,26 @@ begin
     ImageIndex := 0;
 end;
 
-procedure TCallStackWindow.WriteToAppStorage(AppStorage: TJvCustomAppStorage;
-  const BasePath: string);
+procedure TCallStackWindow.StoreSettings(AppStorage: TJvCustomAppStorage);
 begin
-  AppStorage.WriteInteger(BasePath+'\Threads Width',
+  inherited;
+  AppStorage.WriteInteger(FBasePath+'\Threads Width',
    PPIUnScale(ThreadView.Width));
-  AppStorage.WriteInteger(BasePath+'\Function Width',
+  AppStorage.WriteInteger(FBasePath+'\Function Width',
    PPIUnScale(CallStackView.Header.Columns[0].Width));
-  AppStorage.WriteInteger(BasePath+'\Line Width',
+  AppStorage.WriteInteger(FBasePath+'\Line Width',
     PPIUnScale(CallStackView.Header.Columns[2].Width));
 end;
 
-procedure TCallStackWindow.ReadFromAppStorage(AppStorage: TJvCustomAppStorage;
-  const BasePath: string);
+procedure TCallStackWindow.RestoreSettings(AppStorage: TJvCustomAppStorage);
 begin
+  inherited;
   ThreadView.Width :=
-    PPIScale(AppStorage.ReadInteger(BasePath+'\Threads Width', 140));
+    PPIScale(AppStorage.ReadInteger(FBasePath+'\Threads Width', 140));
   CallStackView.Header.Columns[0].Width :=
-    PPIScale(AppStorage.ReadInteger(BasePath+'\Function Width', 100));
+    PPIScale(AppStorage.ReadInteger(FBasePath+'\Function Width', 100));
   CallStackView.Header.Columns[2].Width :=
-    PPIScale(AppStorage.ReadInteger(BasePath+'\Line Width', 50));
+    PPIScale(AppStorage.ReadInteger(FBasePath+'\Line Width', 50));
 end;
 
 procedure TCallStackWindow.SetActiveThread(const Value: TThreadInfo);

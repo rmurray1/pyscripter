@@ -45,8 +45,8 @@ unit cFindInFiles;
 interface
 
 uses
-  Classes,
-  Graphics,
+  System.Classes,
+  Vcl.Graphics,
   cFileSearch,
   JvAppStorage,
   uCommonFunctions;
@@ -180,13 +180,6 @@ type
     property AbortSignalled: Boolean read FAbortSignalled write FAbortSignalled;
   end;
 
-  TFont = class(Graphics.TFont)
-  published
-    property Height stored False;
-    property Size stored True;
-    property Style default [];
-  end;
-
  TFindInFilesExpert = class(TInterfacedPersistent, IJvAppStorageHandler)
   private
     FGrepMiddle: Boolean;
@@ -204,8 +197,8 @@ type
     FGrepWholeWord: Boolean;
     FGrepRegEx: Boolean;
     FNumContextLines: Integer;
-    FListFont: TFont;
-    FContextFont: TFont;
+    FListFont: TStoredFont;
+    FContextFont: TStoredFont;
     FContextMatchColor: TColor;
     procedure SetSearchList(New: TStrings);
     procedure SetReplaceList(New: TStrings);
@@ -230,8 +223,8 @@ type
     property GrepWholeWord: Boolean read FGrepWholeWord write FGrepWholeWord;
     property GrepRegEx: Boolean read FGrepRegEx write FGrepRegEx;
     property NumContextLines: Integer read FNumContextLines write FNumContextLines;
-    property ListFont: TFont read FListFont write FListFont;
-    property ContextFont: TFont read FContextFont write FContextFont;
+    property ListFont: TStoredFont read FListFont write FListFont;
+    property ContextFont: TStoredFont read FContextFont write FContextFont;
     property ContextMatchColor: TColor read FContextMatchColor write FContextMatchColor;
 
     property SearchList: TStrings read FSearchList write SetSearchList;
@@ -248,12 +241,11 @@ uses
   System.SysUtils,
   Vcl.Controls,
   Vcl.Forms,
+  Vcl.Themes,
   uEditAppIntfs,
   dlgFindResultsOptions,
   cProjectClasses,
-  dmCommands,
-  cParameters,
-  cPyScripterSettings, Vcl.Themes;
+  cPyScripterSettings;
 
 { TLineMatches }
 
@@ -431,7 +423,7 @@ begin
       else
         Result := False;
 
-      var FileName := Editor.GetFileNameOrTitle;
+      var FileName := Editor.FileId;
       GrepFile(FileName);
   end);
 end;
@@ -444,7 +436,7 @@ begin
    if not Result and (Node is TProjectFileNode) and
      (TProjectFileNode(Node).FileName <> '')
    then begin
-     FileName := Parameters.ReplaceInText(TProjectFileNode(Node).FileName);
+     FileName := GI_PyIDEServices.ReplaceParams(TProjectFileNode(Node).FileName);
      TGrepSearchRunner(Data).GrepFile(FileName);
    end;
 end;
@@ -642,10 +634,10 @@ begin
   FReplaceList := TStringList.Create;
   FMaskList := TStringList.Create;
   FDirList := TStringList.Create;
-  FListFont := TFont.Create;
+  FListFont := TStoredFont.Create;
   FListFont.Assign(Application.DefaultFont);
-  FContextFont := TFont.Create;
-  FContextFont.Name := DefaultCodeFontName;
+  FContextFont := TStoredFont.Create;
+  FContextFont.Name := 'Consolas';
   FContextFont.Size := 9;
   FContextMatchColor := clHighlight;
   FNumContextLines := 2;
@@ -713,6 +705,7 @@ procedure TFindInFilesExpert.WriteToAppStorage(AppStorage: TJvCustomAppStorage;
   const BasePath: string);
 begin
   with AppStorage do begin
+    DeleteSubTree(BasePath);
     WriteBoolean(BasePath+'\CaseSensitive', GrepCaseSensitive);
     WriteBoolean(BasePath+'\NoComments', GrepNoComments);
     WriteInteger(BasePath+'\Search', GrepSearch);

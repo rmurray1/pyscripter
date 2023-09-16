@@ -20,7 +20,7 @@ uses
   System.SyncObjs,
   System.Threading,
   Vcl.Forms,
-  JclSysUtils,
+  uSysUtils,
   PythonEngine,
   uEditAppIntfs,
   cTools,
@@ -38,7 +38,7 @@ type
     fUseNamedPipes : boolean;
     fNamedPipeStream : Variant;
     procedure CreateAndConnectToServer;
-    procedure StoreServerProcessInfo(const ProcessInfo: TProcessInformation; InWritePipe: THandle);
+    procedure StoreServerProcessInfo(const ProcessInfo: TProcessInformation; InWritePipe: PHandle);
   protected
     const RemoteServerBaseName = 'remserver.py';
     const RpycZipModule = 'rpyc.zip';
@@ -61,8 +61,8 @@ type
     procedure CreateAndRunServerProcess; virtual;
     procedure ConnectToServer;
     procedure ShutDownServer;  virtual;
-    procedure CreateMainModule; override;
     procedure ProcessServerOutput(const Bytes: TBytes; BytesRead: Cardinal);
+    function GetInterpreter: Variant; override;
   public
     constructor Create(AEngineType : TPythonEngineType = peRemote);
     destructor Destroy; override;
@@ -122,11 +122,13 @@ type
   TPyRemDebugger = class(TPyBaseDebugger)
   { Remote debugger using Rpyc for communication with the server }
   private
+    fExecPaused: Boolean;
     fDebugManager : Variant;
     fMainDebugger : Variant;
     fLineCache : Variant;
     fMainThread : TThreadInfo;
     fThreads : TObjectDictionary<Int64, TThreadInfo>;
+    procedure SyncThreadInfo(Thread_ID: Int64; ThreadName: string; ThreadStatus : integer);
   protected
     fDebuggerCommand : TDebuggerCommand;
     fRemotePython : TPyRemoteInterpreter;
@@ -180,22 +182,18 @@ implementation
 uses
   System.Generics.Defaults,
   System.StrUtils,
+  System.IOUtils,
   Vcl.Dialogs,
   VarPyth,
-  JclStrings,
   JclSysInfo,
   JvJCLUtils,
   JvDSADialogs,
   JvGnugettext,
   StringResources,
-  //frmVariables,
   cProjectClasses,
-  cParameters,
-  cRefactoring,
   cPyScripterSettings,
   cPyControl,
   uCommonFunctions,
-  cInternalPython,
   cSSHSupport;
 
 { TRemNameSpaceItem }
@@ -249,7 +247,7 @@ begin
         FullInfoTuple := fRemotePython.RPI.safegetmembersfullinfo(fPyObject, ExpandSequences,
           ExpandCommonTypes, ExpandSequences)
       else
-        FullInfoTuple := TPyInternalInterpreter(PyControl.InternalInterpreter).PyInteractiveInterpreter.safegetmembersfullinfo(fPyObject,
+        FullInfoTuple := PyControl.InternalInterpreter.PyInteractiveInterpreter.safegetmembersfullinfo(fPyObject,
           ExpandSequences, ExpandCommonTypes, ExpandSequences);
       fChildCount := len(FullInfoTuple);
 
@@ -285,7 +283,8 @@ begin
       end;
     except
       fChildCount := 0;
-      StyledMessageDlg(Format(_(SErrorGettingNamespace), [fName]), mtError, [mbAbort], 0);
+
+      //StyledMessageDlg(Format(_(SErrorGettingNamespace), [fName]), mtError, [mbAbort], 0);
       System.SysUtils.Abort;
     end;
   end;
@@ -365,7 +364,7 @@ begin
   DocString := '';
   if Expr = '' then Exit;
 
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
   try
     //Evaluate the lookup expression and get the hint text
@@ -417,14 +416,14 @@ begin
     System.SysUtils.Abort;
   end;
 
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
 
   VarClear(Result);
   PyControl.ErrorPos := TEditorPos.EmptyPos;
 
   GI_PyIDEServices.Messages.ClearMessages;
 
-  Editor := GI_EditorFactory.GetEditorByNameOrTitle(ARunConfig.ScriptName);
+  Editor := GI_EditorFactory.GetEditorByFileId(ARunConfig.ScriptName);
   if Assigned(Editor) then
     Source := CleanEOLs(Editor.SynEdit.Text) + WideLF
   else
@@ -500,7 +499,7 @@ constructor TPyRemoteInterpreter.Create(AEngineType : TPythonEngineType = peRemo
 
 Var
   SuppressOutput : IInterface;
-  ServerSource: string;
+  ServerSource: TStrings;
   ServerName: string;
 begin
   fInterpreterCapabilities := [icReInitialize];
@@ -540,10 +539,9 @@ begin
     else
       raise Exception.Create('Invalid Engine type in TPyRemoteInterpreter constructor');
     end;
-    ServerSource := GI_PyIDEServices.GetStoredScript(ServerName).Text;
-    try
-      StringToFile(fServerFile, AnsiString(ServerSource));
-    except
+    ServerSource := GI_PyIDEServices.GetStoredScript(ServerName);
+    if not SaveWideStringsToFile(fServerFile, ServerSource, False) then
+    begin
       StyledMessageDlg(Format(_(SCouldNotWriteServerFile), [fServerFile]), mtError, [mbAbort], 0);
       fServerIsAvailable := False;
     end;
@@ -681,14 +679,14 @@ Var
   PythonPathAdder : IInterface;
   RunConfiguration : TRunConfiguration;
 begin
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   Assert(Assigned(Editor));
   CheckConnected;
   VarClear(Result);
   //Compile
   RunConfiguration := TRunConfiguration.Create;
   try
-    RunConfiguration.ScriptName := Editor.GetFileNameOrTitle;
+    RunConfiguration.ScriptName := Editor.FileId;
     Code := Compile(RunConfiguration);
   finally
     RunConfiguration.Free;
@@ -697,8 +695,11 @@ begin
   Assert(VarIsPython(Code));  // an exception should have been raised if failed
 
   // Add the path of the imported script to the Python path
-  Path := ToPythonFileName(Editor.GetFileNameOrTitle);
-  Path := IfThen(Path.StartsWith('<'), '', XtractFileDir(Path));
+  Path := ToPythonFileName(Editor.FileId);
+  if Path.StartsWith('<') then
+    Path := ''
+  else
+    Path := TPath.GetDirectoryName(Path);
   if Length(Path) > 1 then begin
     PythonPathAdder := AddPathToPythonPath(Path, False);
     SysPathRemove('');
@@ -824,7 +825,7 @@ end;
 
 procedure TPyRemoteInterpreter.ReInitialize;
 begin
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   case PyControl.DebuggerState of
     dsDebugging, dsRunning:
       begin
@@ -859,10 +860,15 @@ begin
   end;
 end;
 
+function TPyRemoteInterpreter.GetInterpreter: Variant;
+begin
+  Result := RPI;
+end;
+
 procedure TPyRemoteInterpreter.RestoreCommandLine;
 begin
   CheckConnected;
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   Conn.modules.sys.argv := fOldargv;
 end;
 
@@ -882,7 +888,7 @@ begin
   CheckConnected;
   CanDoPostMortem := False;
 
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
 
   //Compile
   Code := Compile(ARunConfig);
@@ -890,14 +896,17 @@ begin
 
   // Add the path of the script to the Python Path - Will be automatically removed
   Path := ToPythonFileName(ARunConfig.ScriptName);
-  Path := IfThen(Path.StartsWith('<'), '', XtractFileDir(Path));
+  if Path.StartsWith('<') then
+    Path := ''
+  else
+    Path := TPath.GetDirectoryName(Path);
   SysPathRemove('');
   if Path.Length > 1 then
     PythonPathAdder := AddPathToPythonPath(Path);
 
   // Set the Working directory
   if ARunConfig.WorkingDir <> '' then
-    Path := Parameters.ReplaceInText(ARunConfig.WorkingDir);
+    Path := GI_PyIDEServices.ReplaceParams(ARunConfig.WorkingDir);
   if Path.Length <= 1 then
     Path := SystemTempFolder;
   OldPath := RPI.rem_getcwdu();
@@ -930,7 +939,7 @@ begin
     // Do not reenter
     Timer.Stop;
 
-    var Py := SafePyEngine;
+    var Py := GI_PyControl.SafePyEngine;
     try
       if Connected then ServeConnection(500);
     except
@@ -995,18 +1004,17 @@ begin
 end;
 
 function TPyRemoteInterpreter.RunSource(Const Source, FileName : Variant; symbol : string = 'single') : boolean;
-Var
+var
   OldDebuggerState : TDebuggerState;
   OldPos : TEditorPos;
-
-  begin
+begin
   CheckConnected;
   Assert(not GI_PyControl.Running, 'RunSource called while the Python engine is active');
   OldDebuggerState := PyControl.DebuggerState;
   OldPos := PyControl.CurrentPos;
 
   PyControl.DebuggerState := dsRunning;
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   try
     try
       Result := RPI.runsource(VarPythonCreate(Source), VarPythonCreate(FileName), VarPythonCreate(symbol));
@@ -1105,14 +1113,6 @@ begin
   end;
 end;
 
-procedure TPyRemoteInterpreter.CreateMainModule;
-var
-  Py: IPyEngineAndGIL;
-begin
-  Py := SafePyEngine;
-  fMainModule := TModuleProxy.CreateFromModule(Conn.modules.__main__, self);
-end;
-
 procedure TPyRemoteInterpreter.ServeConnection(MaxCount : integer);
 Var
   Count : integer;
@@ -1135,7 +1135,7 @@ var
   P : PChar;
 begin
   CheckConnected;
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   fOldargv := Conn.modules.sys.argv;
   Conn.execute('__import__("sys").argv = []');
   Argv := Conn.modules.sys.argv;
@@ -1146,7 +1146,7 @@ begin
 
   S := Trim(ARunConfig.Parameters);
   if S <> '' then begin
-    S := Parameters.ReplaceInText(S);
+    S := GI_PyIDEServices.ReplaceParams(S);
     P := PChar(S);
     while P[0] <> #0 do begin
       P := GetParamStr(P, Param);
@@ -1183,7 +1183,6 @@ begin
       // Do not destroy Remote Debugger
       // PyControl.ActiveDebugger := nil;
 
-      FreeAndNil(fMainModule);
       VarClear(fOldArgv);
       VarClear(RPI);
       VarClear(Conn);
@@ -1204,8 +1203,8 @@ begin
   fConnected := False;
 end;
 
-procedure TPyRemoteInterpreter.StoreServerProcessInfo(
-  const ProcessInfo: TProcessInformation; InWritePipe: THandle);
+procedure TPyRemoteInterpreter.StoreServerProcessInfo(const ProcessInfo:
+    TProcessInformation; InWritePipe: PHandle);
 begin
   ServerProcessInfo := ProcessInfo;
 end;
@@ -1217,7 +1216,7 @@ var
   PythonPath: Variant;
 begin
   CheckConnected;
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   // could have used Conn.deliver
   Conn.execute('__import__("sys").path = []');
   PythonPath := Conn.modules.sys.path;
@@ -1233,7 +1232,7 @@ begin
   CheckConnected(True, False);
   if not Connected then Exit;
 
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   if not Conn.modules.sys.path.__contains__(Path) then begin
     Conn.modules.sys.path.insert(0, Path);
     Result := true;
@@ -1248,7 +1247,7 @@ begin
   CheckConnected(True, False);
   if not Connected then Exit;
 
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   if Conn.modules.sys.path.__contains__(Path) then begin
     Result := True;
     Conn.modules.sys.path.remove(Path);
@@ -1263,7 +1262,7 @@ var
 begin
   CheckConnected;
 
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   RemPath := Rpyc.classic.obtain(Conn.modules.sys.path);
   for i := 0 to Len(RemPath) - 1  do
     Strings.Add(RemPath.__getitem__(i));
@@ -1271,7 +1270,7 @@ end;
 
 procedure TPyRemoteInterpreter.SystemCommand(const Cmd: string);
 begin
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   RPI.system_command(Cmd);
 end;
 
@@ -1303,7 +1302,7 @@ begin
   fRemotePython := RemotePython;
   fDebugManager := fRemotePython.RPI.DebugManager;
   fDebugManager.debugIDE :=
-    TPyInternalInterpreter(PyControl.InternalInterpreter).PyInteractiveInterpreter.debugIDE;
+    PyControl.InternalInterpreter.PyInteractiveInterpreter.debugIDE;
 
   fMainDebugger := fDebugManager.main_debugger;
 
@@ -1338,7 +1337,7 @@ Var
   Py: IPyEngineAndGIL;
   Frame, BotFrame, TraceBack : Variant;
 begin
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   if not (HaveTraceback and (PyControl.DebuggerState = dsInactive)) then
     Exit;
 
@@ -1370,7 +1369,7 @@ begin
   if PyControl.DebuggerState in [dsPaused, dsPostMortem] then begin
     SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
     try
-      Py := SafePyEngine;
+      Py := GI_PyControl.SafePyEngine;
       // evalcode knows we are in the debugger and uses current frame locals/globals
       V := fRemotePython.RPI.evalcode(Expr);
       Result := TNameSpaceItem.Create(Expr, V);
@@ -1392,7 +1391,7 @@ begin
   if PyControl.DebuggerState in [dsPaused, dsPostMortem] then begin
     SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
     try
-      Py := SafePyEngine;
+      Py := GI_PyControl.SafePyEngine;
       // evalcode knows we are in the debugger and uses current frame locals/globals
       V := fRemotePython.RPI.evalcode(Expr);
       ObjType := fRemotePython.RPI.objecttype(V);
@@ -1408,7 +1407,7 @@ begin
   GI_PyInterpreter.SetPyInterpreterPrompt(pipNormal);
   GI_PyInterpreter.AppendPrompt;
 
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   fMainThread.Status := thrdRunning;
   fMainThread.CallStack.Clear;
   TPyBaseDebugger.ThreadChangeNotify(fMainThread, tctStatusChange);
@@ -1472,7 +1471,7 @@ begin
 //     dcPause       : fRemotePython.Debugger.set_step();
 //     dcAbort       : fRemotePython.Debugger.set_quit();
 //   end;
-   var Py := SafePyEngine;
+   var Py := GI_PyControl.SafePyEngine;
    fDebugManager.debug_command := Ord(fDebuggerCommand);
    fDebuggerCommand := dcNone;
 end;
@@ -1484,7 +1483,7 @@ begin
     if not (IsAvailable and Connected) then
       Exit;
   try
-    var Py := SafePyEngine;
+    var Py := GI_PyControl.SafePyEngine;
     Result := fRemotePython.Conn.eval('hasattr(__import__("sys"), "last_traceback")');
   except
   end;
@@ -1501,10 +1500,10 @@ begin
   begin
     with Editor do begin
       if not HasPythonFile then Exit;
-      SFName := fRemotePython.ToPythonFileName(GetFileNameOrTitle);
+      SFName := fRemotePython.ToPythonFileName(FileId);
       if SFName.StartsWith('<') and
         // so that we do not push to ssh engine linecache all local open files
-        (PyControl.RunConfig.ScriptName = GetFileNameOrTitle)
+        (PyControl.RunConfig.ScriptName = FileId)
       then
       begin
         FName := SFName;
@@ -1520,7 +1519,7 @@ end;
 
 procedure TPyRemDebugger.MakeFrameActive(Frame: TBaseFrameInfo);
 begin
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   if Assigned(Frame) then
     fDebugManager.active_frame := (Frame as TFrameInfo).PyFrame
   else
@@ -1529,7 +1528,7 @@ end;
 
 procedure TPyRemDebugger.MakeThreadActive(Thread: TThreadInfo);
 begin
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   if Assigned(Thread) then
     fDebugManager.active_thread := Thread.Thread_ID
   else
@@ -1580,21 +1579,24 @@ begin
   fDebuggerCommand := dcRun;
   Assert(PyControl.DebuggerState = dsInactive);
 
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   //Compile
   Code := fRemotePython.Compile(ARunConfig);
   if not VarIsPython(Code) then Exit;
 
   // Add the path of the script to the Python Path - Will be automatically removed
   Path := fRemotePython.ToPythonFileName(ARunConfig.ScriptName);
-  Path := IfThen(Path.StartsWith('<'), '', XtractFileDir(Path));
+  if Path.StartsWith('<') then
+    Path := ''
+  else
+    Path := TPath.GetDirectoryName(Path);
   fRemotePython.SysPathRemove('');
   if Path.Length > 1 then
     PythonPathAdder := fRemotePython.AddPathToPythonPath(Path);
 
   // Set the Working directory
   if ARunConfig.WorkingDir <> '' then
-    Path := Parameters.ReplaceInText(ARunConfig.WorkingDir);
+    Path := GI_PyIDEServices.ReplaceParams(ARunConfig.WorkingDir);
   if Path.Length <= 1 then
     Path := fRemotePython.SystemTempFolder;
   OldPath := fRemotePython.RPI.rem_getcwdu();
@@ -1622,7 +1624,8 @@ begin
     GI_PyInterpreter.ShowWindow;
 
   GI_PyInterpreter.SetPyInterpreterPrompt(pipDebug);
-  GI_PyInterpreter.AppendPrompt;
+  // Better without.  A prompt will be added when the debugger breaks
+  //GI_PyInterpreter.AppendPrompt;
   //attach debugger callback routines
   with PyControl.InternalPython.DebugIDE.Events do begin
     Items[dbie_user_call].OnExecute := UserCall;
@@ -1655,7 +1658,15 @@ begin
     // Do not reenter
     Timer.Stop;
 
-    var Py := SafePyEngine;
+    // Check whether we are executing statements while broken
+    if fExecPaused then
+    begin
+      // Wait for the execution to finish
+      Timer.Restart;
+      Exit;
+    end;
+
+    var Py := GI_PyControl.SafePyEngine;
     try
       if fRemotePython.Connected then fRemotePython.ServeConnection(500);
     except
@@ -1736,10 +1747,15 @@ function TPyRemDebugger.RunSource(Const Source, FileName : Variant; symbol : str
 Var
   OldCurrentPos : TEditorPos;
 begin
+  if not (PyControl.DebuggerState in [dsPaused, dsPostMortem]) then
+    Exit(False);
+
   OldCurrentPos := PyControl.CurrentPos;
+  fExecPaused := True;
   try
     Result := fRemotePython.RunSource(Source, FileName, symbol);
   finally
+    fExecPaused := False;
     PyControl.CurrentPos := OldCurrentPos;
   end;
 end;
@@ -1752,8 +1768,8 @@ begin
   GI_PyInterpreter.RemovePrompt;
   // Set Temporary breakpoint
   SetDebuggerBreakPoints;  // So that this one is not cleared
-  FName := fRemotePython.ToPythonFileName(Editor.GetFileNameOrTitle);
-  var Py := SafePyEngine;
+  FName := fRemotePython.ToPythonFileName(Editor.FileId);
+  var Py := GI_PyControl.SafePyEngine;
   fMainDebugger.set_break(VarPythonCreate(FName), ALine, 1);
 
   fDebuggerCommand := dcRunToCursor;
@@ -1769,7 +1785,7 @@ procedure TPyRemDebugger.SetDebuggerBreakpoints;
 begin
   if not PyControl.BreakPointsChanged then Exit;
 
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   LoadLineCache;
   fMainDebugger.clear_all_breaks();
 
@@ -1777,7 +1793,7 @@ begin
   var
     FName : string;
   begin
-    FName := fRemotePython.ToPythonFileName(Editor.GetFileNameOrTitle);
+    FName := fRemotePython.ToPythonFileName(Editor.FileId);
     for var I := 0 to Editor.BreakPoints.Count - 1 do begin
       var BreakPoint := TBreakPoint(Editor.BreakPoints[I]);
       if not BreakPoint.Disabled then begin
@@ -1819,7 +1835,7 @@ procedure TPyRemDebugger.UserCall(Sender: TObject; PSelf, Args: PPyObject;
   var Result: PPyObject);
 // Not used
 begin
-   var Py := SafePyEngine;
+   var Py := GI_PyControl.SafePyEngine;
    Result := Py.PythonEngine.ReturnNone;
 end;
 
@@ -1827,7 +1843,7 @@ procedure TPyRemDebugger.UserException(Sender: TObject; PSelf, Args: PPyObject;
   var Result: PPyObject);
 // Not used
 begin
-   var Py := SafePyEngine;
+   var Py := GI_PyControl.SafePyEngine;
    Result := Py.PythonEngine.ReturnNone;
 end;
 
@@ -1843,16 +1859,17 @@ Var
   Arguments : Variant;
   BotFrame : Variant;
 begin
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
 
   fRemotePython.CheckConnected;
 
   Arguments := VarPythonCreate(Args);
   Thread_ID := Arguments.__getitem__(0);
-  if not fThreads.TryGetValue(Thread_ID, ThreadInfo) then
+  // Do not stop while executing code in paused state
+  if fExecPaused or not fThreads.TryGetValue(Thread_ID, ThreadInfo) then
   begin
     Result := Py.PythonEngine.ReturnFalse;
-    Exit;  // Should not happen
+    Exit;
   end;
 
   Frame := Arguments.__getitem__(1);
@@ -1863,7 +1880,7 @@ begin
 
   if (LineNumber > 0) and
      (not PyIDEOptions.TraceOnlyIntoOpenFiles or
-        Assigned(GI_EditorFactory.GetEditorByNameOrTitle(FName))) and
+        Assigned(GI_EditorFactory.GetEditorByFileId(FName))) and
      GI_PyIDEServices.ShowFilePosition(FName, LineNumber, 1, 0, True, False)
   then
   begin
@@ -1886,8 +1903,7 @@ begin
     Result := Py.PythonEngine.ReturnFalse;
 end;
 
-procedure TPyRemDebugger.UserThread(Sender: TObject; PSelf, Args: PPyObject;
-  var Result: PPyObject);
+procedure TPyRemDebugger.SyncThreadInfo(Thread_ID: Int64; ThreadName: string; ThreadStatus : integer);
 
   function HaveBrokenThread: Boolean;
   Var
@@ -1902,23 +1918,10 @@ procedure TPyRemDebugger.UserThread(Sender: TObject; PSelf, Args: PPyObject;
       end;
   end;
 
-Var
-  Py: IPyEngineAndGIL;
-  Thread_ID : Int64;
-  ThreadName : string;
-  ThreadStatus : integer;
-  Arguments: Variant;
+var
   ThreadInfo : TThreadInfo;
   OldStatus : TThreadStatus;
 begin
-  Py := SafePyEngine;
-  Result := Py.PythonEngine.ReturnNone;
-
-  Arguments := VarPythonCreate(Args);
-  Thread_ID := Arguments.__getitem__(0);
-  ThreadName := Arguments.__getitem__(1);
-  ThreadStatus := Arguments.__getitem__(2);
-
   if TThreadStatus(ThreadStatus) = thrdFinished then begin
     if fThreads.ContainsKey(Thread_ID) then begin
       TPyBaseDebugger.ThreadChangeNotify(fThreads[Thread_ID], tctRemoved);
@@ -1949,10 +1952,35 @@ begin
   end;
 end;
 
+procedure TPyRemDebugger.UserThread(Sender: TObject; PSelf, Args: PPyObject;
+  var Result: PPyObject);
+var
+  Py: IPyEngineAndGIL;
+  Thread_ID: Int64;
+  ThreadName: string;
+  ThreadStatus : integer;
+begin
+  Py := GI_PyControl.SafePyEngine;
+  Result := Py.PythonEngine.ReturnNone;
+
+  Thread_ID := Py.PythonEngine.GetSequenceItem(Args, 0);
+  ThreadName := Py.PythonEngine.GetSequenceItem(Args, 1);
+  ThreadStatus := Py.PythonEngine.GetSequenceItem(Args, 2);
+
+  // Make sure SyncThreadInfo runs in the main thread when fExecPaused if False
+  TThread.Queue(nil, procedure
+  begin
+    while fExecPaused do
+      // can't think of a better way to wait
+      Application.ProcessMessages;
+    SyncThreadInfo(Thread_ID, ThreadName, ThreadStatus);
+  end);
+end;
+
 procedure TPyRemDebugger.UserYield(Sender: TObject; PSelf, Args: PPyObject;
   var Result: PPyObject);
 begin
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   Result := GetPythonEngine.PyLong_FromLong(Ord(fDebuggerCommand));
 end;
 

@@ -7,7 +7,9 @@
 
 GExperts License Agreement
 GExperts is copyright 1996-2005 by GExperts, Inc, Erik Berry, and several other
-authors who have submitted their code for inclusion. This license agreement only covers code written by GExperts, Inc and Erik Berry. You should contact the other authors concerning their respective copyrights and conditions.
+authors who have submitted their code for inclusion. This license agreement only
+covers code written by GExperts, Inc and Erik Berry. You should contact the
+other authors concerning their respective copyrights and conditions.
 
 The rules governing the use of GExperts and the GExperts source code are derived
 from the official Open Source Definition, available at http://www.opensource.org.
@@ -75,20 +77,19 @@ type
   TProcInfo = class(TObject)
   private
     FLineNo: Integer;
-    FDisplayName: string;
-    FProcArgs: string;
+    FChar: Integer;
     FProcClass: string;
     FProcName: string;
     FProcIndex: Integer;
+    function GetDisplayName: string;
   public
     property LineNo: Integer read FLineNo write FLineNo;
-    property DisplayName: string read FDisplayName write FDisplayName;
-    property ProcArgs: string read FProcArgs write FProcArgs;
+    property Char: Integer read FChar write FChar;
+    property DisplayName: string read GetDisplayName;
     property ProcName: string read FProcName write FProcName;
     property ProcClass: string read FProcClass write FProcClass;
     property ProcIndex: Integer read FProcIndex write FProcIndex;
   end;
-
 
 type
   TFunctionListWindow = class(TPyIDEDlgBase)
@@ -150,6 +151,7 @@ type
     FProcList: TStringList;
     FFileName: string;
     FObjectStrings: TStringList;
+    function Signature(ProcInfo: TProcInfo): string;
     procedure QuickSort(L, R: Integer);
     procedure UMResizeCols(var Msg: TMessage); message UM_RESIZECOLS;
     procedure LoadProcs;
@@ -174,16 +176,22 @@ implementation
 {$R *.dfm}
 
 uses
+  System.Generics.Collections,
   System.SysUtils,
   System.StrUtils,
   System.Math,
+  System.IOUtils,
+  System.JSON,
   Vcl.Clipbrd,
   JvJVCLUtils,
   JvGnuGetText,
-  frmPyIDEMain,
-  dmCommands,
+  SynEditTypes,
+  dmResources,
   uEditAppIntfs,
-  cPythonSourceScanner,
+  SynEditLsp,
+  LspClient,
+  LspUtils,
+  JediLspClient,
   uCommonFunctions;
 
 resourcestring
@@ -209,71 +217,77 @@ end;
 
 procedure TFunctionListWindow.LoadProcs;
 
-  procedure ProcessCodeElement(CodeElement : TCodeElement);
+  procedure ProcessSymbol(Symbol : TJsonValue; const ParentClass: string);
   Var
     ProcInfo: TProcInfo;
-    i : integer;
+    LineNo,
+    Char,
+    Kind: Integer;
+    Name,
+    KlassName: string;
   begin
-    if CodeElement.ClassType = TParsedFunction then begin
-      ProcInfo := TProcInfo.Create;
-      ProcInfo.ProcName := CodeElement.Name;
-      ProcInfo.LineNo := CodeElement.CodeBlock.StartLine;
-      ProcInfo.ProcArgs := TParsedFunction(CodeElement).ArgumentsString;
-      if Assigned(CodeElement.Parent) and (CodeElement.Parent.ClassType = TParsedClass) then begin
-        ProcInfo.FProcClass := CodeElement.Parent.Name;
-        ProcInfo.ProcIndex := Integer(TCodeImages.Method);
-      end else
-        ProcInfo.ProcIndex := Integer(TCodeImages.Func);
+    if not (Symbol.TryGetValue<integer>('selectionRange.start.line', LineNo) and
+      Symbol.TryGetValue<integer>('selectionRange.start.character', Char) and
+      Symbol.TryGetValue<integer>('kind', Kind) and
+      Symbol.TryGetValue<string>('name', Name))
+    then
+      Exit;
 
-      AddProcedure(ProcInfo);
+    KlassName := '';
+    case Kind of
+      Ord(TSymbolKind._Class):  KlassName := Name;
+      Ord(TSymbolKind._Function),
+      Ord(TSymbolKind.Method):
+        begin
+          ProcInfo := TProcInfo.Create;
+          ProcInfo.ProcName := Name;
+          ProcInfo.LineNo := LineNo + 1;
+          ProcInfo.Char := Char + 1;
+          if ParentClass <> '' then begin
+            ProcInfo.FProcClass := ParentClass;
+            ProcInfo.ProcIndex := Integer(TCodeImages.Method);
+          end else
+            ProcInfo.ProcIndex := Integer(TCodeImages.Func);
+          AddProcedure(ProcInfo);
+        end;
     end;
-    for i := 0 to CodeElement.ChildCount - 1 do
-      ProcessCodeElement(CodeElement.Children[i]);
+
+    if Symbol.P['children'] is TJsonArray then
+    begin
+      var Children := TJsonArray(Symbol.P['children']);
+      for var I := 0 to Children.Count - 1 do
+        ProcessSymbol(Children.Items[i], KlassName);
+    end;
   end;
 
-  procedure ProcessParsedModule(Module : TParsedModule);
-  var
-    i : integer;
+  procedure ProcessSymbolArray(Symbols : TJsonArray);
   begin
-    if Module.ChildCount > 0 then
-      for i := 0 to Module.ChildCount - 1 do
-        ProcessCodeElement(Module.Children[i] as TCodeElement);
+    for var I := 0 to Symbols.Count - 1 do
+      ProcessSymbol(Symbols.Items[I], '');
   end;
 
 var
-  Editor : IEditor;
-  Module : TParsedModule;
-  PythonScanner : TPythonScanner;
+  DocSymbols: TJsonArray;
 begin
-  Caption := Caption + ' - ' + XtractFileName(FFileName);
-  Editor := GI_EditorFactory.GetEditorByNameOrTitle(Self.FFileName);
-  if not Assigned(Editor) then Exit;
-  Module := TParsedModule.Create(Editor.SynEdit.Lines.Text);
-  PythonScanner := TPythonScanner.Create;
+  Caption := Caption + ' - ' + TPath.GetFileName(FFileName);
+  DocSymbols := TSmartPtr.Make(TJedi.DocumentSymbols(FFileName))();
+  if not Assigned(DocSymbols) then Exit;
+
+  FProcList.Capacity := 200;
+  ClearObjectStrings;
+  FProcList.BeginUpdate;
   try
-    FProcList.Capacity := 200;
-    ClearObjectStrings;
-    FProcList.BeginUpdate;
-    try
-      PythonScanner.ScanModule(Module);
-      ProcessParsedModule(Module);
-    finally
-      FProcList.EndUpdate;
-      LoadObjectCombobox;
-    end;
-    QuickSort(0, FProcList.Count - 1);
-    RightStatusLabel.Caption := Trim(IntToStr(lvProcs.Items.Count));
+    ProcessSymbolArray(DocSymbols);
   finally
-    PythonScanner.Free;
-    Module.Free;
+    FProcList.EndUpdate;
+    LoadObjectCombobox;
   end;
+  QuickSort(0, FProcList.Count - 1);
+  RightStatusLabel.Caption := Trim(IntToStr(lvProcs.Items.Count));
 end;
 
 procedure TFunctionListWindow.AddProcedure(ProcedureInfo: TProcInfo);
 begin
-  if Length(ProcedureInfo.ProcClass) > 0 then
-    ProcedureInfo.DisplayName := ProcedureInfo.ProcClass + '.';
-  ProcedureInfo.DisplayName := ProcedureInfo.DisplayName + ProcedureInfo.ProcName;
   FProcList.AddObject(#9 + ProcedureInfo.DisplayName + #9 + IntToStr(ProcedureInfo.LineNo), ProcedureInfo);
   if Length(ProcedureInfo.ProcClass) = 0 then
     FObjectStrings.Add(SNoneString)
@@ -374,29 +388,35 @@ end;
 procedure TFunctionListWindow.SaveSettings;
 begin
   // Do not localize any of the following lines
-  with PyIDEMainForm.AppStorage do begin
-    WriteInteger('Function List\Left', Left);
-    WriteInteger('Function List\Top', Top);
-    WriteInteger('Function List\Width', Width);
-    WriteInteger('Function List\Height', Height);
+  with GI_PyIDEServices.AppStorage do begin
+    DeleteSubTree('Function List');
+    WriteInteger('Function List\Width', MulDiv(Width, 96, FCurrentPPI));
+    WriteInteger('Function List\Height',  MulDiv(Height, 96, FCurrentPPI));
 
     WriteBoolean('Function List\SearchAll', FSearchAll);
     WriteInteger('Function List\SortColumn', FSortOnColumn);
-    WritePersistent('Function List\Font', lvProcs.Font);
+
+    var StoredFont := TSmartPtr.Make(TStoredFont.Create)();
+    StoredFont.Assign(lvProcs.Font);
+    StoredFont.Height := MulDiv(StoredFont.Height, StoredFont.PixelsPerInch,
+      FCurrentPPI);
+    WritePersistent('Function List\Font', StoredFont);
   end;
 end;
 
 procedure TFunctionListWindow.LoadSettings;
 begin
   // Do not localize any of the following lines
-  with PyIDEMainForm.AppStorage do begin
-    Left := ReadInteger('Function List\Left', Left);
-    Top := ReadInteger('Function List\Top', Top);
-    Width := ReadInteger('Function List\Width', Width);
-    Height := ReadInteger('Function List\Height', Height);
+  with GI_PyIDEServices.AppStorage do begin
+    if PathExists('Function List\Width') then
+      Width := MulDiv(ReadInteger('Function List\Width', Width), FCurrentPPI, 96);
+    if PathExists('Function List\Height') then
+      Height := MulDiv(ReadInteger('Function List\Height', Height), FCurrentPPI, 96);
 
     FSortOnColumn := ReadInteger('Function List\SortColumn', FSortOnColumn);
     ReadPersistent('Function List\Font', lvProcs.Font);
+    lvProcs.Font.Height := MulDiv(lvProcs.Font.Height, FCurrentPPI,
+      lvProcs.Font.PixelsPerInch);
     FSearchAll := ReadBoolean('Function List\SearchAll', True);
     ResizeCols;
   end;
@@ -481,6 +501,7 @@ begin
     FillListBox;
   end;
 end;
+
 procedure TFunctionListWindow.lvProcsChange(Sender: TObject; Item: TListItem;
   Change: TItemChange);
 var
@@ -491,7 +512,7 @@ begin
     ProcInfo := lvProcs.Selected.Data;
   if ProcInfo <> nil then
   begin
-    LeftStatusLabel.Caption := ProcInfo.DisplayName + '(' + ProcInfo.ProcArgs + ')';
+    LeftStatusLabel.Caption := Signature(ProcInfo);
     RightStatusLabel.Caption := Format('%d/%d', [lvProcs.Selected.Index + 1, lvProcs.Items.Count]);
     actViewGoto.Enabled := (lvProcs.Selected <> nil);
   end;
@@ -567,7 +588,7 @@ begin
     begin
       ProcInfo := TProcInfo(lvProcs.Items[i].Data);
       if ProcInfo <> nil then
-        Procs.Add(ProcInfo.ProcName + ProcInfo.ProcArgs);
+        Procs.Add(Signature(ProcInfo));
     end;
   finally
     if Procs.Count > 0 then
@@ -583,6 +604,7 @@ end;
 
 procedure TFunctionListWindow.actOptionsFontExecute(Sender: TObject);
 begin
+  lvProcs.Font.PixelsPerInch := FCurrentPPI;
   dlgProcFont.Font.Assign(lvProcs.Font);
   if dlgProcFont.Execute then
     lvProcs.Font.Assign(dlgProcFont.Font);
@@ -605,6 +627,21 @@ end;
 procedure TFunctionListWindow.actViewGotoExecute(Sender: TObject);
 begin
   GotoCurrentlySelectedProcedure;
+end;
+
+function TFunctionListWindow.Signature(ProcInfo: TProcInfo): string;
+begin
+//  var BC := BufferCoord(ProcInfo.Char, ProcInfo.LineNo);
+//  Result := TJedi.SimpleHintAtCoordinates(FFileName, BC);
+//  if Result <> '' then
+//    Result := GetLineRange(Result, 1, 1);
+  Result := Trim(GetNthSourceLine(FFileName, ProcInfo.LineNo));
+  var Index := Result.LastIndexOf(':');
+  if Index >= 0 then
+    Delete(Result, Index + 1, MaxInt);
+  if Result.StartsWith('def') then
+    Delete(Result, 1, 3);
+  Result := Result.TrimLeft;
 end;
 
 procedure TFunctionListWindow.GotoCurrentlySelectedProcedure;
@@ -670,15 +707,27 @@ var
 
 begin
   if Assigned(GI_ActiveEditor) then begin
-    FileName := GI_ActiveEditor.GetFileNameOrTitle;
+    FileName := GI_ActiveEditor.FileId;
 
     Dlg := TFunctionListWindow.CreateWithFileName(nil, FileName);
+    Dlg.cbxObjects.ItemIndex := Dlg.cbxObjects.Items.IndexOf(SAllString);  // not sure why this is needed
+
     try
       Dlg.ShowModal;
     finally
       FreeAndNil(Dlg);
     end;
   end;
+end;
+
+{ TProcInfo }
+
+function TProcInfo.GetDisplayName: string;
+begin
+  if FProcClass <> '' then
+    Result := FProcClass + '.' + FProcName
+  else
+    Result := FProcName;
 end;
 
 end.

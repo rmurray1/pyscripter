@@ -41,8 +41,7 @@ inherited MessagesWindow: TMessagesWindow
     E9BDDAC3ABBDB78757800000000000000000000000000000000000000000B885
     5928B786568EB88756B1B88756B1B88756B1B88756B1B88756B1B88756B1B886
     57A9B6855763BB88551E0000000000000000000000000000000000000000}
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   inherited BGPanel: TPanel
     Width = 741
     Height = 218
@@ -65,6 +64,7 @@ inherited MessagesWindow: TMessagesWindow
         PopupMenu = TBXPopupMenu
         TabOrder = 0
         TreeOptions.AnimationOptions = [toAnimatedToggle]
+        TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoTristateTracking, toAutoHideButtons, toAutoDeleteMovedNodes, toAutoChangeScale]
         TreeOptions.MiscOptions = [toFullRepaintOnResize, toInitOnSave, toReportMode, toToggleOnDblClick, toWheelPanning]
         TreeOptions.PaintOptions = [toHideSelection, toHotTrack, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection]
         TreeOptions.SelectionOptions = [toExtendedFocus, toFullRowSelect, toRightClickSelect]
@@ -72,6 +72,8 @@ inherited MessagesWindow: TMessagesWindow
         OnDblClick = MessagesViewDblClick
         OnGetText = MessagesViewGetText
         OnInitNode = MessagesViewInitNode
+        Touch.InteractiveGestures = [igPan, igPressAndTap]
+        Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
         Columns = <
           item
             Position = 0
@@ -211,34 +213,28 @@ inherited MessagesWindow: TMessagesWindow
     end
   end
   object vilImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 16
         CollectionName = 'Copy'
-        Disabled = False
         Name = 'Copy'
       end
       item
         CollectionIndex = 21
         CollectionName = 'Delete'
-        Disabled = False
         Name = 'Delete'
       end
       item
         CollectionIndex = 2
         CollectionName = 'ArrowLeft'
-        Disabled = False
         Name = 'ArrowLeft'
       end
       item
         CollectionIndex = 3
         CollectionName = 'ArrowRight'
-        Disabled = False
         Name = 'ArrowRight'
       end>
-    ImageCollection = CommandsDataModule.icSVGImages
+    ImageCollection = ResourcesDataModule.icSVGImages
     PreserveItems = True
     Width = 20
     Height = 20

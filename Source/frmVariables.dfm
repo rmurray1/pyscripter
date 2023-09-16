@@ -40,8 +40,7 @@ inherited VariablesWindow: TVariablesWindow
     3EE0D9983EE0D9983EE0D9983EE0D9983EE0D9983EE0D3953FCDC28A455C0000
     0000000000000000000000000000000000000000000000000000000000000000
     000000000000000000000000000000000000000000000000000000000000}
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   inherited BGPanel: TPanel
     Width = 579
     Height = 247
@@ -57,23 +56,52 @@ inherited VariablesWindow: TVariablesWindow
         Color = clNone
         ParentColor = False
         TabOrder = 0
-        object reInfo: TRichEdit
+        object synInfo: TSynEdit
           Left = 0
           Top = 0
           Width = 375
           Height = 89
+          Cursor = crDefault
           Align = alTop
-          BorderStyle = bsNone
           Font.Charset = ANSI_CHARSET
           Font.Color = clWindowText
-          Font.Height = -11
-          Font.Name = 'Tahoma'
+          Font.Height = -12
+          Font.Name = 'Consolas'
           Font.Style = []
-          ParentFont = False
-          ReadOnly = True
+          Font.Quality = fqClearTypeNatural
           TabOrder = 0
-          Zoom = 100
-          OnResizeRequest = reInfoResizeRequest
+          UseCodeFolding = False
+          BorderStyle = bsNone
+          Gutter.Font.Charset = DEFAULT_CHARSET
+          Gutter.Font.Color = clWindowText
+          Gutter.Font.Height = -11
+          Gutter.Font.Name = 'Consolas'
+          Gutter.Font.Style = []
+          Gutter.Visible = False
+          Gutter.Bands = <
+            item
+              Kind = gbkMarks
+              Width = 13
+            end
+            item
+              Kind = gbkLineNumbers
+            end
+            item
+              Kind = gbkFold
+            end
+            item
+              Kind = gbkTrackChanges
+            end
+            item
+              Kind = gbkMargin
+              Width = 3
+            end>
+          HideSelection = True
+          ReadOnly = True
+          RightEdge = 0
+          ScrollBars = ssNone
+          SelectedColor.Alpha = 0.400000005960464500
+          WordWrap = True
         end
       end
       object SpTBXSplitter: TSpTBXSplitter
@@ -120,6 +148,8 @@ inherited VariablesWindow: TVariablesWindow
           OnGetImageIndex = VariablesTreeGetImageIndex
           OnInitChildren = VariablesTreeInitChildren
           OnInitNode = VariablesTreeInitNode
+          Touch.InteractiveGestures = [igPan, igPressAndTap]
+          Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
           Columns = <
             item
               Position = 0
@@ -151,70 +181,58 @@ inherited VariablesWindow: TVariablesWindow
     Top = 75
   end
   object vilCodeImages: TVirtualImageList
-    DisabledGrayscale = False
-    DisabledSuffix = '_Disabled'
     Images = <
       item
         CollectionIndex = 8
         CollectionName = 'CodeImages\Python'
-        Disabled = False
         Name = 'Python'
       end
       item
         CollectionIndex = 9
         CollectionName = 'CodeImages\Variable'
-        Disabled = False
         Name = 'Variable'
       end
       item
         CollectionIndex = 1
         CollectionName = 'CodeImages\Field'
-        Disabled = False
         Name = 'Field'
       end
       item
         CollectionIndex = 2
         CollectionName = 'CodeImages\Function'
-        Disabled = False
         Name = 'Function'
       end
       item
         CollectionIndex = 5
         CollectionName = 'CodeImages\Method'
-        Disabled = False
         Name = 'Method'
       end
       item
         CollectionIndex = 0
         CollectionName = 'CodeImages\Class'
-        Disabled = False
         Name = 'Class'
       end
       item
         CollectionIndex = 7
         CollectionName = 'CodeImages\Namespace'
-        Disabled = False
         Name = 'Namespace'
       end
       item
         CollectionIndex = 4
         CollectionName = 'CodeImages\List'
-        Disabled = False
         Name = 'List'
       end
       item
         CollectionIndex = 6
         CollectionName = 'CodeImages\Module'
-        Disabled = False
         Name = 'Module'
       end
       item
         CollectionIndex = 3
         CollectionName = 'CodeImages\Keyword'
-        Disabled = False
         Name = 'Keyword'
       end>
-    ImageCollection = CommandsDataModule.icCodeImages
+    ImageCollection = ResourcesDataModule.icCodeImages
     PreserveItems = True
     Left = 22
     Top = 123

@@ -85,7 +85,7 @@ type
     fDebugger : Variant;
     fOldargv : Variant;
   protected
-    procedure CreateMainModule; override;
+    function GetInterpreter: Variant; override;
   public
     constructor Create(II : Variant);
     function CreateDebugger: TPyBaseDebugger; override;
@@ -113,7 +113,6 @@ type
     function UnitTestResult : Variant; override;
     function NameSpaceItemFromPyObject(aName : string; aPyObject : Variant): TBaseNameSpaceItem; override;
     property Debugger : Variant read fDebugger;
-    property PyInteractiveInterpreter : Variant read fII;
   end;
 
   TPyInternalDebugger = class(TPyBaseDebugger)
@@ -176,6 +175,7 @@ uses
   System.Math,
   System.Variants,
   System.StrUtils,
+  System.IOUtils,
   Vcl.Dialogs,
   JvDSADialogs,
   JvGnugettext,
@@ -183,11 +183,8 @@ uses
   VarPyth,
   StringResources,
   uCommonFunctions,
-  cRefactoring,
   cPyScripterSettings,
-  cParameters,
-  cPyControl,
-  cInternalPython;
+  cPyControl;
 
 { TFrameInfo }
 
@@ -247,7 +244,7 @@ begin
   else begin
     SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
     try
-      Result := TPyInternalInterpreter(PyControl.InternalInterpreter).PyInteractiveInterpreter.membercount(fPyObject, ExpandSequences,
+      Result := PyControl.InternalInterpreter.PyInteractiveInterpreter.membercount(fPyObject, ExpandSequences,
         ExpandCommonTypes, ExpandSequences);
     except
       Result := 0;
@@ -278,7 +275,7 @@ begin
     GotChildNodes := True;
     SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
     try
-      FullInfoTuple := TPyInternalInterpreter(PyControl.InternalInterpreter).PyInteractiveInterpreter.safegetmembersfullinfo(fPyObject, ExpandSequences,
+      FullInfoTuple := PyControl.InternalInterpreter.PyInteractiveInterpreter.safegetmembersfullinfo(fPyObject, ExpandSequences,
         ExpandCommonTypes, ExpandSequences);
       fChildCount := len(FullInfoTuple);
 
@@ -342,7 +339,7 @@ var
 begin
   SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
   try
-    fObjectInfo := TPyInternalInterpreter(PyControl.InternalInterpreter).PyInteractiveInterpreter.objectinfo(fPyObject);
+    fObjectInfo := PyControl.InternalInterpreter.PyInteractiveInterpreter.objectinfo(fPyObject);
   except
     fObjectInfo := 0;
   end;
@@ -364,7 +361,7 @@ Var
 begin
   SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
   try
-    Result :=  TPyInternalInterpreter(PyControl.InternalInterpreter).PyInteractiveInterpreter.saferepr(fPyObject);
+    Result :=  PyControl.InternalInterpreter.PyInteractiveInterpreter.saferepr(fPyObject);
   except
     Result := '';
   end;
@@ -481,7 +478,7 @@ Var
   Py: IPyEngineAndGIL;
   Frame, BotFrame, TraceBack : Variant;
 begin
-  Py:= SafePyEngine;
+  Py:= GI_PyControl.SafePyEngine;
   if not (HaveTraceback and (PyControl.DebuggerState = dsInactive)) then
     Exit;
 
@@ -513,7 +510,7 @@ begin
   if PyControl.DebuggerState in [dsPaused, dsPostMortem] then begin
     SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
     try
-      Py := SafePyEngine;
+      Py := GI_PyControl.SafePyEngine;
       // evalcode knows we are in the debugger and uses current frame locals/globals
       V := InternalInterpreter.PyInteractiveInterpreter.evalcode(Expr);
       Result := TNameSpaceItem.Create(Expr, V);
@@ -534,7 +531,7 @@ begin
   if PyControl.DebuggerState in [dsPaused, dsPostMortem] then begin
     SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
     try
-      Py := SafePyEngine;
+      Py := GI_PyControl.SafePyEngine;
       // evalcode knows we are in the debugger and uses current frame locals/globals
       V := InternalInterpreter.PyInteractiveInterpreter.evalcode(Expr);
       ObjType := InternalInterpreter.PyInteractiveInterpreter.objecttype(V);
@@ -596,7 +593,7 @@ end;
 function TPyInternalDebugger.HaveTraceback: boolean;
 begin
   try
-    var Py := SafePyEngine;
+    var Py := GI_PyControl.SafePyEngine;
     Result := VarModuleHasObject(SysModule, 'last_traceback');
   except
     Result := False;
@@ -645,15 +642,17 @@ begin
 
     // Add the path of the script to the Python Path - Will be automatically removed
     Path := InternalInterpreter.ToPythonFileName(ARunConfig.ScriptName);
-    Path := IfThen(Path.StartsWith('<'), '', ExtractFileDir(Path));
-
+    if Path.StartsWith('<') then
+      Path := ''
+    else
+      Path := TPath.GetDirectoryName(Path);
     InternalInterpreter.SysPathRemove('');
     if Length(Path) > 1 then
       PythonPathAdder := InternalInterpreter.AddPathToPythonPath(Path);
 
     // Set the Working directory
     if ARunConfig.WorkingDir <> '' then
-      Path := Parameters.ReplaceInText(ARunConfig.WorkingDir);
+      Path := GI_PyIDEServices.ReplaceParams(ARunConfig.WorkingDir);
     if Path.Length <= 1 then
       Path := InternalInterpreter.SystemTempFolder;
     OldPath := GetCurrentDir;
@@ -700,7 +699,7 @@ begin
     //set breakpoints
     SetDebuggerBreakPoints;
 
-    ThreadPythonExec(procedure
+    GI_PyControl.ThreadPythonExec(procedure
     begin
       if RunToCursorLine >= 0 then  // add temp breakpoint
         InternalInterpreter.Debugger.set_break(Code.co_filename, RunToCursorLine, 1);
@@ -772,8 +771,8 @@ begin
   Assert(PyControl.DebuggerState = dsPaused);
   // Set Temporary breakpoint
   SetDebuggerBreakPoints;  // So that this one is not cleared
-  FName := InternalInterpreter.ToPythonFileName(Editor.GetFileNameOrTitle);
-  var Py := SafePyEngine;
+  FName := InternalInterpreter.ToPythonFileName(Editor.FileId);
+  var Py := GI_PyControl.SafePyEngine;
   InternalInterpreter.Debugger.set_break(VarPythonCreate(FName), ALine, 1);
 
   fDebuggerCommand := dcRunToCursor;
@@ -846,7 +845,7 @@ begin
   begin
     CanBreak :=  (LineNo > 0) and
       (not PyIDEOptions.TraceOnlyIntoOpenFiles or
-       Assigned(GI_EditorFactory.GetEditorByNameOrTitle(FName))) and
+       Assigned(GI_EditorFactory.GetEditorByFileId(FName))) and
        GI_PyIDEServices.ShowFilePosition(FName, LineNo, 1, 0, True, False);
   end);
 
@@ -912,7 +911,6 @@ end;
 procedure TPyInternalDebugger.UserYield(Sender: TObject; PSelf, Args: PPyObject;
   var Result: PPyObject);
 begin
-//  PyControl.DoYield(False);
   if fDebuggerCommand = dcAbort then begin
     InternalInterpreter.Debugger.set_quit();
     TThread.Synchronize(nil, procedure
@@ -934,7 +932,7 @@ procedure TPyInternalDebugger.SetDebuggerBreakpoints;
 begin
   if not PyControl.BreakPointsChanged then Exit;
 
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   LoadLineCache;
   InternalInterpreter.Debugger.clear_all_breaks();
 
@@ -942,7 +940,7 @@ begin
   var
     FName : string;
   begin
-    FName := InternalInterpreter.ToPythonFileName(Editor.GetFileNameOrTitle);
+    FName := InternalInterpreter.ToPythonFileName(Editor.FileId);
     for var I := 0 to Editor.BreakPoints.Count - 1 do begin
       var BreakPoint := TBreakPoint(Editor.BreakPoints[I]);
       if not BreakPoint.Disabled then begin
@@ -971,7 +969,7 @@ begin
   begin
     with Editor do begin
       if not HasPythonFile then Exit;
-      SFName := InternalInterpreter.ToPythonFileName(GetFileNameOrTitle);
+      SFName := InternalInterpreter.ToPythonFileName(FileId);
       if SFName.StartsWith('<') then
       begin
         FName := SFName;
@@ -987,7 +985,7 @@ end;
 
 procedure TPyInternalDebugger.MakeFrameActive(Frame: TBaseFrameInfo);
 begin
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   if Assigned(Frame) then
     InternalInterpreter.Debugger.currentframe := (Frame as TFrameInfo).fPyFrame
   else
@@ -1025,14 +1023,6 @@ begin
   Result := TPyInternalDebugger.Create;
 end;
 
-procedure TPyInternalInterpreter.CreateMainModule;
-var
-  Py: IPyEngineAndGIL;
-begin
-  Py := SafePyEngine;
-  fMainModule := TModuleProxy.CreateFromModule(VarPyth.MainModule, self);
-end;
-
 function TPyInternalInterpreter.EvalCode(const Expr: string): Variant;
 begin
   // may raise exceptions
@@ -1051,7 +1041,7 @@ begin
   DocString := '';
   if Expr = '' then Exit;
 
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
   try
     //Evaluate the lookup expression and get the hint text
@@ -1083,14 +1073,14 @@ begin
     System.SysUtils.Abort;
   end;
 
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
 
   VarClear(Result);
   PyControl.ErrorPos := TEditorPos.EmptyPos;
 
   GI_PyIDEServices.Messages.ClearMessages;
 
-  Editor := GI_EditorFactory.GetEditorByNameOrTitle(ARunConfig.ScriptName);
+  Editor := GI_EditorFactory.GetEditorByFileId(ARunConfig.ScriptName);
   if Assigned(Editor) then begin
     Source := CleanEOLs(Editor.EncodedText) + AnsiString(#10);
   end else begin
@@ -1176,21 +1166,24 @@ Var
   PythonPathAdder : IInterface;
   RunConfiguration : TRunConfiguration;
 begin
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   Assert(Assigned(Editor));
   VarClear(Result);
   //Compile
   RunConfiguration := TRunConfiguration.Create;
   try
-    RunConfiguration.ScriptName := Editor.GetFileNameOrTitle;
+    RunConfiguration.ScriptName := Editor.FileId;
     Code := Compile(RunConfiguration);
   finally
     RunConfiguration.Free;
   end;
 
   // Add the path of the imported script to the Python Path
-  Path := ToPythonFileName(Editor.GetFileNameOrTitle);
-  Path := IfThen(Path.StartsWith('<'), '', ExtractFileDir(Path));
+  Path := ToPythonFileName(Editor.FileId);
+  if Path.StartsWith('<') then
+    Path := ''
+  else
+    Path := TPath.GetDirectoryName(Path);
   if Path.Length > 1 then begin
     PythonPathAdder := AddPathToPythonPath(Path, False);
     SysPathRemove('');
@@ -1271,7 +1264,7 @@ procedure TPyInternalInterpreter.RestoreCommandLine;
 var
   Py: IPyEngineAndGIL;
 begin
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   SysModule.argv := fOldargv;
 end;
 
@@ -1282,7 +1275,7 @@ var
   S, Param : string;
   P : PChar;
 begin
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   SysMod := SysModule;
   fOldargv := SysMod.argv;
   SysMod.argv := NewPythonList;
@@ -1293,7 +1286,7 @@ begin
 
   S := Trim(ARunConfig.Parameters);
   if S <> '' then begin
-    S := Parameters.ReplaceInText(S);
+    S := GI_PyIDEServices.ReplaceParams(S);
     P := PChar(S);
     while P[0] <> #0 do begin
       P := GetParamStr(P, Param);
@@ -1309,7 +1302,7 @@ var
   i: Integer;
   PythonPath: Variant;
 begin
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   PythonPath := NewPythonList;
   for i := 0 to Strings.Count - 1 do
     PythonPath.append(Strings[i]);
@@ -1326,6 +1319,11 @@ begin
     TimeKillEvent(PLongWord(dwUser)^);
     PLongWord(dwUser)^ := 0;
   end;
+end;
+
+function TPyInternalInterpreter.GetInterpreter: Variant;
+begin
+  Result := fII;
 end;
 
 procedure TPyInternalInterpreter.Run(ARunConfig: TRunConfiguration);
@@ -1357,15 +1355,17 @@ begin
 
     // Add the path of the executed file to the Python path - Will be automatically removed
     Path := ToPythonFileName(ARunConfig.ScriptName);
-    Path := IfThen(Path.StartsWith('<'), '', ExtractFileDir(Path));
-
+    if Path.StartsWith('<') then
+      Path := ''
+    else
+      Path := TPath.GetDirectoryName(Path);
     SysPathRemove('');
     if Length(Path) > 1 then
       PythonPathAdder := AddPathToPythonPath(Path);
 
   // Set the Working directory
     if ARunConfig.WorkingDir <> '' then
-      Path := Parameters.ReplaceInText(ARunConfig.WorkingDir);
+      Path := GI_PyIDEServices.ReplaceParams(ARunConfig.WorkingDir);
     if Path.Length <= 1 then
       Path := SystemTempFolder;
     OldPath := GetCurrentDir;
@@ -1393,7 +1393,7 @@ begin
         mmResult := TimeSetEvent(PyIDEOptions.TimeOut, resolution,
           @TimeCallBack, DWORD(@mmResult), TIME_PERIODIC or 256);
       end;
-      var Py := SafePyEngine;
+      var Py := GI_PyControl.SafePyEngine;
       try
         try
           fII.run_nodebug(Code);
@@ -1446,7 +1446,7 @@ begin
   OldPos := PyControl.CurrentPos;
   PyControl.DebuggerState := dsRunning;
   try
-    var Py := SafePyEngine;
+    var Py := GI_PyControl.SafePyEngine;
     // Workaround due to PREFER_UNICODE flag to make sure
     // no conversion to Unicode and back will take place
     var PySource := VarPythonCreate(Source);
@@ -1462,92 +1462,44 @@ function TPyInternalInterpreter.SyntaxCheck(Editor: IEditor; out ErrorPos: TEdit
 Var
   FName: string;
   Source: AnsiString;
-  tmp:PPyObject;
-  PyErrType, PyErrValue, PyErrTraceback, PyErrValueTuple: PPyObject;
   SuppressOutput: IInterface;
+  Flags: PyCompilerFlags;
 begin
   ErrorPos := TEditorPos.EmptyPos;
 
   TThread.Synchronize(nil, procedure
   begin
-    FName := ToPythonFileName(Editor.GetFileNameOrTitle);
+    FName := ToPythonFileName(Editor.FileId);
     Source := CleanEOLs(Editor.EncodedText)+AnsiString(#10);
   end);
 
-  with SafePyEngine.PythonEngine do begin
+  with GI_PyControl.SafePyEngine.PythonEngine do begin
     if Quiet then
       SuppressOutput := GI_PyInterpreter.OutputSuppressor; // Do not show errors
-    Result := CheckExecSyntax(Source);
-    if not Result then begin
-      if Quiet then begin
-        if Assigned(PyErr_Occurred()) then begin
-          if (PyErr_ExceptionMatches(PyExc_SyntaxError^) = 1) then begin
-            PyErr_Fetch(PyErrType, PyErrValue, PyErrTraceback);  // Clears the Error
-            if Assigned(PyErrValue) then begin
-            // Sometimes there's a tuple instead of instance...
-              if PyTuple_Check( PyErrValue )  and (PyTuple_Size( PyErrValue) >= 2) then
-              begin
-                ErrorPos.ErrorMsg := PyObjectAsString(PyTuple_GetItem( PyErrValue, 0));
-                PyErrValueTuple := PyTuple_GetItem( PyErrValue, 1);
-                if PyTuple_Check( PyErrValueTuple )  and (PyTuple_Size( PyErrValueTuple) >= 4) then
-                begin
-                  ErrorPos.Line := PyLong_AsLong(PyTuple_GetItem( PyErrValueTuple, 1));
-                  ErrorPos.Char := PyLong_AsLong(PyTuple_GetItem( PyErrValueTuple, 2));
-                end;
-              end else
-                // Is it an instance of the SyntaxError class ?
-              if PyObject_IsInstance(PyErrValue, PyExc_SyntaxError^) = 1 then
-              begin
-                // Get the text containing the error, cut of carriage return
-                tmp := PyObject_GetAttrString(PyErrValue, 'text');
-                if Assigned(tmp) and PyUnicode_Check(tmp) then
-                  ErrorPos.ErrorMsg := Trim(PyUnicodeAsString(tmp));
-                Py_XDECREF(tmp);
-                // Get the offset where the error should appear
-                tmp := PyObject_GetAttrString(PyErrValue, 'offset' );
-                if Assigned(tmp) and PyLong_Check(tmp) then
-                  ErrorPos.Char := PyLong_AsLong(tmp);
-                Py_XDECREF(tmp);
-                // Get the line number of the error
-                tmp := PyObject_GetAttrString(PyErrValue, 'lineno' );
-                if Assigned(tmp) and PyLong_Check(tmp) then
-                  ErrorPos.Line := PyLong_AsLong(tmp);
-                Py_XDECREF(tmp);
-                PyErr_Clear;
-              end;
-              ErrorPos.Editor := Editor;
-              ErrorPos.IsSyntax := True;
-            end;
-            Py_XDECREF(PyErrType);
-            Py_XDECREF(PyErrValue);
-            Py_XDECREF(PyErrTraceback);
-          end else
-            PyErr_Clear;
-        end;
-      end
-      else
-      begin
-        // Display error
-        // New Line for output
-        GI_PyIDEServices.Messages.ClearMessages;
 
+    Result := True;
+    Flags.flags := PyCF_ONLY_AST;
+    Flags.cf_feature_version := MinorVersion;
+    try
+      // Print and throw exception for the error
+      Py_CompileStringExFlags(PAnsiChar(Source),
+        PAnsiChar(EncodeWindowsFilePath(FName)), file_input, @Flags, -1);
+      if Assigned(PyErr_Occurred()) and not Quiet then
         GI_PyInterpreter.AppendText(sLineBreak);
-        try
-          // Print and throw exception for the error
-          CheckError;
-        except
-          on E: EPySyntaxError do begin
-            E.EFileName := FName;  // add the filename
-            if GI_PyIDEServices.ShowFilePosition(E.EFileName, E.ELineNumber, E.EOffset) and
-              Assigned(GI_ActiveEditor)
-            then
-            begin
-              ErrorPos := TEditorPos.NPos(GI_ActiveEditor, E.ELineNumber, E.EOffset, True);
-              PyControl.ErrorPos := ErrorPos;
-            end;
-          end;
+      CheckError;
+    except
+      on E: EPySyntaxError do begin
+        Result := False;
+        ErrorPos := TEditorPos.NPos(Editor, E.ELineNumber, E.EOffset, True);
+
+        if not Quiet then
+        begin
+          GI_PyIDEServices.Messages.ClearMessages;
+          // New Line for output
+          GI_PyInterpreter.AppendPrompt;
+          if GI_PyIDEServices.ShowFilePosition(E.EFileName, E.ELineNumber, E.EOffset) then
+            PyControl.ErrorPos := ErrorPos;
         end;
-        GI_PyInterpreter.AppendPrompt;
       end;
     end;
   end;
@@ -1557,7 +1509,7 @@ function TPyInternalInterpreter.SysPathAdd(const Path: string): boolean;
 Var
   Py: IPyEngineAndGIL;
 begin
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   if SysModule.path.__contains__(Path) then
     Result := false
   else begin
@@ -1570,7 +1522,7 @@ function TPyInternalInterpreter.SysPathRemove(const Path: string): boolean;
 Var
   Py: IPyEngineAndGIL;
 begin
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   if SysModule.path.__contains__(Path) then begin
     Result := True;
     SysModule.path.remove(Path);
@@ -1583,14 +1535,14 @@ var
   Py: IPyEngineAndGIL;
   i: Integer;
 begin
-  Py := SafePyEngine;
+  Py := GI_PyControl.SafePyEngine;
   for i := 0 to Len(SysModule.path) - 1  do
     Strings.Add(SysModule.path.__getitem__(i));
 end;
 
 procedure TPyInternalInterpreter.SystemCommand(const Cmd: string);
 begin
-  var Py := SafePyEngine;
+  var Py := GI_PyControl.SafePyEngine;
   fII.system_command(Cmd);
 end;
 

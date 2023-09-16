@@ -69,6 +69,7 @@ Uses
 procedure TSpTBXCustomizeFormMod.FormCreate(Sender: TObject);
 begin
   inherited;
+  SetDefaultUIFont(Font);
   TranslateComponent(Self);
 end;
 
@@ -179,7 +180,7 @@ begin
     // Draw the separator
     R := ARect;
     InflateRect(R, -20, -4);
-    SpDrawXPMenuSeparator(ACanvas, R, False, False, FCurrentPPI);
+    SpDrawXPMenuSeparator(nil, ACanvas, R, False, False, FCurrentPPI);
     PaintDefault := False;
   end
   else

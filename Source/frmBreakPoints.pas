@@ -10,14 +10,37 @@ unit frmBreakPoints;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, JvDockControlForm, frmIDEDockWin, ExtCtrls,
-  Contnrs, TB2Item, Menus, VirtualTrees, JvComponentBase,
-  SpTBXSkins, SpTBXItem, JvAppStorage, SpTBXControls, System.ImageList,
-  Vcl.ImgList, Vcl.VirtualImageList;
+  Winapi.Windows,
+  Winapi.Messages,
+  System.SysUtils,
+  System.Variants,
+  System.Classes,
+  System.ImageList,
+  System.Contnrs,
+  Vcl.Graphics,
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.Dialogs,
+  Vcl.Menus,
+  Vcl.ExtCtrls,
+  Vcl.ImgList,
+  Vcl.VirtualImageList,
+  JvAppStorage,
+  JvComponentBase,
+  JvDockControlForm,
+  VirtualTrees.Types,
+  VirtualTrees.BaseTree,
+  VirtualTrees.BaseAncestorVCL,
+  VirtualTrees.AncestorVCL,
+  VirtualTrees,
+  TB2Item,
+  SpTBXSkins,
+  SpTBXItem,
+  SpTBXControls,
+  frmIDEDockWin;
 
 type
-  TBreakPointsWindow = class(TIDEDockWindow, IJvAppStorageHandler)
+  TBreakPointsWindow = class(TIDEDockWindow)
     TBXPopupMenu: TSpTBXPopupMenu;
     mnClear: TSpTBXItem;
     Breakpoints1: TSpTBXItem;
@@ -46,15 +69,13 @@ type
         TShiftState);
     procedure FormActivate(Sender: TObject);
   private
-    { Private declarations }
-    fBreakPointsList : TObjectList;
-  protected
-    // IJvAppStorageHandler implementation
-    procedure ReadFromAppStorage(AppStorage: TJvCustomAppStorage; const BasePath: string);
-    procedure WriteToAppStorage(AppStorage: TJvCustomAppStorage; const BasePath: string);
+    const FBasePath = 'Breakpoints Window Options'; // Used for storing settings
+    var fBreakPointsList : TObjectList;
   public
-    { Public declarations }
     procedure UpdateWindow;
+    // AppStorage
+    procedure StoreSettings(AppStorage: TJvCustomAppStorage); override;
+    procedure RestoreSettings(AppStorage: TJvCustomAppStorage); override;
   end;
 
 var
@@ -64,12 +85,12 @@ implementation
 
 uses
   Vcl.Clipbrd,
-  dmCommands,
   uEditAppIntfs,
   uCommonFunctions,
   cPyControl,
   JvGnugettext,
-  StringResources;
+  StringResources,
+  dmResources;
 
 {$R *.dfm}
 
@@ -95,7 +116,7 @@ begin
   begin
     for var BP in Editor.BreakPoints do begin
       var BPInfo := TBreakPointInfo.Create;
-      BPInfo.FileName := Editor.GetFileNameOrTitle;
+      BPInfo.FileName := Editor.FileId;
       BPInfo.Line := TBreakPoint(BP).LineNo;
       BPInfo.Disabled := TBreakPoint(BP).Disabled;
       BPInfo.Condition := TBreakPoint(BP).Condition;
@@ -106,21 +127,21 @@ begin
   BreakPointsView.RootNodeCount := fBreakPointsList.Count;
 end;
 
-procedure TBreakPointsWindow.ReadFromAppStorage(AppStorage: TJvCustomAppStorage;
-  const BasePath: string);
+procedure TBreakPointsWindow.RestoreSettings(AppStorage: TJvCustomAppStorage);
 begin
+  inherited;
   BreakPointsView.Header.Columns[0].Width :=
-    PPIScale(AppStorage.ReadInteger(BasePath+'\FileName Width', 200));
+    PPIScale(AppStorage.ReadInteger(FBasePath+'\FileName Width', 200));
   BreakPointsView.Header.Columns[1].Width :=
-    PPIScale(AppStorage.ReadInteger(BasePath+'\Line Width', 50));
+    PPIScale(AppStorage.ReadInteger(FBasePath+'\Line Width', 50));
 end;
 
-procedure TBreakPointsWindow.WriteToAppStorage(AppStorage: TJvCustomAppStorage;
-  const BasePath: string);
+procedure TBreakPointsWindow.StoreSettings(AppStorage: TJvCustomAppStorage);
 begin
-  AppStorage.WriteInteger(BasePath+'\FileName Width',
+  inherited;
+  AppStorage.WriteInteger(FBasePath+'\FileName Width',
     PPIUnScale(BreakPointsView.Header.Columns[0].Width));
-  AppStorage.WriteInteger(BasePath+'\Line Width',
+  AppStorage.WriteInteger(FBasePath+'\Line Width',
     PPIUnScale(BreakPointsView.Header.Columns[1].Width));
 end;
 
@@ -147,7 +168,7 @@ begin
   if Assigned(Node) then
     with PBreakPointRec(BreakPointsView.GetNodeData(Node))^.BreakPoint do begin
      if FileName = '' then Exit; // No FileName or LineNumber
-     Editor := GI_EditorFactory.GetEditorByNameOrTitle(FileName);
+     Editor := GI_EditorFactory.GetEditorByFileId(FileName);
      if Assigned(Editor) then
        PyControl.ToggleBreakpoint(Editor, Line);
     end;
@@ -162,7 +183,7 @@ begin
   if Assigned(Node) then
     with PBreakPointRec(BreakPointsView.GetNodeData(Node))^.BreakPoint do begin
       if FileName = '' then Exit; // No FileName or LineNumber
-      Editor := GI_EditorFactory.GetEditorByNameOrTitle(FileName);
+      Editor := GI_EditorFactory.GetEditorByFileId(FileName);
       if Assigned(Editor) then begin
         if InputQuery(_(SEditBreakpointCond), _(SEnterPythonExpression), Condition)
         then
@@ -202,7 +223,7 @@ procedure TBreakPointsWindow.BreakPointsViewInitNode(
   Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
   var InitialStates: TVirtualNodeInitStates);
 begin
-  Assert(BreakPointsView.GetNodeLevel(Node) = 0);
+  Assert(ParentNode = nil);
   Assert(Integer(Node.Index) < fBreakPointsList.Count);
   PBreakPointRec(BreakPointsView.GetNodeData(Node))^.BreakPoint :=
     fBreakPointsList[Node.Index] as TBreakPointInfo;
@@ -217,7 +238,6 @@ procedure TBreakPointsWindow.BreakPointsViewGetText(
   Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
   TextType: TVSTTextType; var CellText: string);
 begin
-  Assert(BreakPointsView.GetNodeLevel(Node) = 0);
   Assert(Integer(Node.Index) < fBreakPointsList.Count);
   with PBreakPointRec(BreakPointsView.GetNodeData(Node))^.BreakPoint do
     case Column of

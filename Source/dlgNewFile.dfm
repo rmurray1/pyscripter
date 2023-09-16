@@ -5,10 +5,7 @@ inherited NewFileDialog: TNewFileDialog
   ClientWidth = 466
   OnDestroy = FormDestroy
   OnShow = FormShow
-  ExplicitWidth = 472
-  ExplicitHeight = 326
-  PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   object Panel1: TPanel
     Left = 0
     Top = 0
@@ -29,9 +26,6 @@ inherited NewFileDialog: TNewFileDialog
         Height = 253
         Cursor = crSizeWE
         ResizeStyle = rsUpdate
-        ExplicitLeft = 187
-        ExplicitTop = 2
-        ExplicitHeight = 251
       end
       object Panel3: TPanel
         Left = 1
@@ -43,8 +37,8 @@ inherited NewFileDialog: TNewFileDialog
         object Label1: TLabel
           Left = 9
           Top = 7
-          Width = 56
-          Height = 13
+          Width = 59
+          Height = 15
           Caption = 'Categories:'
         end
         object tvCategories: TVirtualStringTree
@@ -57,13 +51,17 @@ inherited NewFileDialog: TNewFileDialog
           BevelOuter = bvNone
           BevelKind = bkFlat
           Header.AutoSizeIndex = 0
+          Header.Height = 15
           Header.MainColumn = -1
           Header.Options = [hoColumnResize, hoDrag]
           NodeDataSize = 0
           TabOrder = 0
+          TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScrollOnExpand, toAutoTristateTracking, toAutoHideButtons, toAutoDeleteMovedNodes, toAutoChangeScale]
           TreeOptions.PaintOptions = [toHotTrack, toShowButtons, toShowDropmark, toShowRoot, toShowTreeLines, toThemeAware, toUseBlendedImages, toUseBlendedSelection]
           OnChange = tvCategoriesChange
           OnGetText = tvCategoriesGetText
+          Touch.InteractiveGestures = [igPan, igPressAndTap]
+          Touch.InteractiveGestureOptions = [igoPanSingleFingerHorizontal, igoPanSingleFingerVertical, igoPanInertia, igoPanGutter, igoParentPassthrough]
           Columns = <>
         end
       end
@@ -77,8 +75,8 @@ inherited NewFileDialog: TNewFileDialog
         object Label2: TLabel
           Left = 6
           Top = 7
-          Width = 53
-          Height = 13
+          Width = 56
+          Height = 15
           Caption = 'Templates:'
         end
         object lvTemplates: TListView

@@ -5,7 +5,7 @@ interface
 
 Const
   // File Filters
-  sPythonFileFilter = 'Python Files (*.py;*.pyw)|*.py;*.pyw';
+  sPythonFileFilter = 'Python Files (*.py;*.pyw;*.pyi)|*.py;*.pyw;*.pyi';
   sCythonFileFilter = 'Cython Files (*.pyx*.pxd;*.pxi)|*.pyx;*.pxd;*.pxi';
   sHTMLFileFilter = 'HTML Documents (*.htm;*.html)|*.htm;*.html';
   sXMLFileFilter = 'XML Files (*.xml;*.xsd;*.xsl;*.xslt;*.dtd)|*.xml;*.xsd;*.xsl;*.xslt;*.dtd';
@@ -16,6 +16,41 @@ Const
   sPHPFileFilter = 'PHP Files (*.php;*.php3;*.phtml;*.inc)|*.php;*.php3;*.phtml;*.inc';
   sJSONFileFilter = 'JSON Files (*.json;*.ipynb)|*.json;*.ipynb';
   sGeneralFileFilter = 'Text Files(*.txt,*.*)|*.txt;*.*';
+
+  // Syntax element friendly names
+  SyntaxElementFriendlyName_Anchor               =  'Anchor';
+  SyntaxElementFriendlyName_Assembler            =  'Assembler';
+  SyntaxElementFriendlyName_Attribute            =  'Attribute';
+  SyntaxElementFriendlyName_Brackets             =  'Brackets';
+  SyntaxElementFriendlyName_Character            =  'Character';
+  SyntaxElementFriendlyName_Directive            =  'Directive';
+  SyntaxElementFriendlyName_Documentation        =  'Documentation';
+  SyntaxElementFriendlyName_DocumentDelimiter    =  'Document Delimiter';
+  SyntaxElementFriendlyName_Float                =  'Float';
+  SyntaxElementFriendlyName_Hexadecimal          =  'Hexadecimal';
+  SyntaxElementFriendlyName_Identifier           =  'Identifier';
+  SyntaxElementFriendlyName_IllegalChar          =  'Illegal Char';
+  SyntaxElementFriendlyName_Key                  =  'Key';
+  SyntaxElementFriendlyName_NonReservedKeyword   =  'Non-reserved Keyword';
+  SyntaxElementFriendlyName_Number               =  'Number';
+  SyntaxElementFriendlyName_NumericValue         =  'Numeric Value';
+  SyntaxElementFriendlyName_Octal                =  'Octal';
+  SyntaxElementFriendlyName_Preprocessor         =  'Preprocessor';
+  SyntaxElementFriendlyName_ReservedWord         =  'Reserved Word';
+  SyntaxElementFriendlyName_Section              =  'Section';
+  SyntaxElementFriendlyName_Space                =  'Space';
+  SyntaxElementFriendlyName_String               =  'String';
+  SyntaxElementFriendlyName_Symbol               =  'Symbol';
+  SyntaxElementFriendlyName_SyntaxError          =  'Syntax Error';
+  SyntaxElementFriendlyName_System               =  'System Functions and Variables';
+  SyntaxElementFriendlyName_Tag                  =  'Tag';
+  SyntaxElementFriendlyName_Text                 =  'Text';
+  SyntaxElementFriendlyName_TextValue            =  'Text Value';
+  SyntaxElementFriendlyName_Value                =  'Value';
+
+  // Editor scroll hints
+  sEditorScrollInfo         =  'Top Line: %d';
+  sPrintPreviewScrollInfo   =  'Page: %d';
 
   // Editor commands
   //Needs to be manually updated as new editor commands are added
@@ -129,7 +164,7 @@ Const
   // User editor commands
   SEdCmdCodeCompletion = 'Code Completion';
   SEdCmdParameterCompletion = 'Parameter Completion';
-  SEdCmdSelectToBracket = 'Select to Bracket';
+  SEdCmdSelectToBracket = 'Select Match Bracket';
 
   // Delphi dialogs (from Vcl.Consts)
   srNone = '(None)';
@@ -159,7 +194,7 @@ Const
 
   SInternalError = 'Internal Error in %s';
   SNotFound = '"%s" not found';
-  SItemsReplaced = '%d items found and %d" items replaced';
+  SItemsReplaced = '%d items found and %d items replaced';
   SNotAvailable = 'n/a';
   SNotImplented = 'Not implemented';
   SFailedToBackupFile = 'Failed to backup file "%s"';
@@ -171,16 +206,15 @@ Const
   SCommandLineMsg  = 'Command Line : %s' + sLineBreak;
   SEngineActive = '*** %s Python engine is active ***';
   SInterpreterNA = 'The internal Python interpreter is not available';
-  SPythonLoadError =
-  'PyScripter could not load a Python engine' + SLineBreak +
-  '**Before** using PyScripter, you must ensure that a version of Python' + SLineBreak +
-  'greater or equal to 2.7 is installed on your machine. If you do not have one' + SLineBreak +
-  'installed, you can download one from http://www.python.org/.' + SLineBreak +  SLineBreak +
-  'The 64-bit version of PyScripter (x64) works only on 64-bit Windows **and**' + SLineBreak +
-  'with 64-bit versions of Python. The 32-bit version of PyScripter works on both' + SLineBreak +
-  '32-bit and 64-bit Windows with 32-bit versions of Python.';
-  SPythonFindError =
-  'PyScripter could not find a usable Python installation at the specified path.' + SLineBreak +
+  SPythonLoadError = 'PyScripter could not load a Python engine.' + SLineBreak +
+  '**Before** using PyScripter, you must ensure that a version of Python ' +
+  'greater or equal to %s is installed on your machine.' + SLineBreak +
+  'If you do not have one installed, you can download one from http://www.python.org/.'
+  + SLineBreak +  SLineBreak +
+  'The 64-bit version of PyScripter (x64) works only on 64-bit Windows **and** with 64-bit versions of Python.'
+   + SLineBreak +
+  'The 32-bit version of PyScripter works on both 32-bit and 64-bit Windows with 32-bit versions of Python.';
+  SPythonFindError =  'PyScripter could not find a usable Python installation at the specified path.' + SLineBreak +
   'Note that the 64-bit version of PyScripter (x64) works only on 64-bit Windows **and**' + SLineBreak +
   'with 64-bit versions of Python. The 32-bit version of PyScripter works on both' + SLineBreak +
   '32-bit and 64-bit Windows with 32-bit versions of Python.';
@@ -293,7 +327,7 @@ Const
   SDisassemblyTab = 'Disassembly';
   SDocumentationHint = 'Documentation|Generate HTML documentation';
   SDocumentation = '&Documentation';
-  SDocTab = 'Doc';
+  SDocTab = 'Documentation';
   SWebPreviewHint = 'Web Preview|Preview HTML in browser';
   SWebPreview = '&Web Preview';
   SWebPreviewTab = 'Browser';
@@ -302,8 +336,12 @@ Const
   SOpenDialogFilter = 'Open dialog %s filter';
   SOnlyJupyterFiles  = 'Web preview is only available for Jupyter JSON files';
   SNoJupyter = 'The ''jupyter'' package is not available.' + SLineBreak + 'Please install ''jupyter'' first.';
+  SWebView2Error = 'The WebView2 control creation failed.' + SLineBreak +  'Please install the WebView2 runtime';
   SExternalProcessRunning = 'An external process is still running.' + SLineBreak +
                             'Please terminate it first from the ''Output'' window.';
+  SDictionaryNA = 'The dictionary for language code "%s" is not available.' + sLineBreak +
+                  'You can get spell checking dictionaries through the Windows language settings.' + sLineBreak +
+                  'You can change the active language through the IDE options dialog.';
 
   //  Project Manager
   SAskSaveProject = 'The active project has not been saved.' + SLineBreak +
@@ -355,7 +393,6 @@ Const
   SProcessRunning            = 'One process is still running, stop it first.';
   SPrintCommandLine          = 'Command line: %s';
   SPrintWorkingDir           = 'Working directory: ';
-  SPrintTimeOut              = 'Timeout: %d ms';
   SExternalToolStillRunning  = 'The External Tool "%s" is still running. Do you want to terminate it?';
 
   // Editor
@@ -371,8 +408,8 @@ Const
                      'You can not have two editors with the same file.';
 
   // Parameters
-  SEnterParameterCaption = 'Parameter replacement';
-  SEnterParameterText = 'Enter parameter value';
+  SEnterParameterCaption = 'Enter parameter value';
+  SEnterParameterText = 'Parameter value';
   SParamCircularReference = 'Parameter "%s" is referenced circularly';
   SParameterNotFound = 'Parameter with name "%s" is not found';
   SModifierNotFound = 'Modifier with name "%s" is not found';
@@ -382,6 +419,9 @@ Const
   SInvalidParameterFormat = '"%s" is not valid parameter format';
   SInvalidConditionFormat = 'Invalid condition format';
   SDuplicateModifier = 'Duplicate Modifier "%s"';
+
+  // Tools
+  SPackageName = 'Package Name';
 
   // Refactoring
   SCouldNotLoadModule = 'Could not load and parse module: "%s"';
@@ -440,6 +480,17 @@ Const
   SSHVersionMismatch = 'Local Python version is %s and remote Python version is %s. '+
     'To use this SSH server please switch to Python version %1:s.';
 
+  // Missing action categories
+  SActionCategoryFile = 'File';
+  SActionCategoryView = 'View';
+  SActionCategoryRun = 'Run';
+  SActionCategoryProject = 'Project';
+  SActionCategoryDebugWindows = 'Debug Windows';
+  SActionCategoryIDENavigation = 'IDE Navigation';
+  SActionCategoryRefactoring = 'Refactoring';
+  SActionCategoryInterpreter = 'Interpreter';
+
+
   // do not localize further
 
 {gnugettext: reset }
@@ -455,6 +506,7 @@ Const
   SParsedMethodCodeHint =  '<b>Method <font color="$FF8844">%s.%s(%s)</font></b>%s';
   SFunctionParameterCodeHint = '<b>Function Parameter <font color="$FF8844">%s</font>'+
                           '</b> of function <font color="$FF8844">%s</font>%s';
+  SVariableCodeHint = '<b>Variable <font color="$FF8844">%s</font>%s%s';
   SLocalVariableCodeHint = '<b>Local variable <font color="$FF8844">%s</font>'+
                           '</b> of function <font color="$FF8844">%s</font>%s';
   SGlobalVariableCodeHint = '<b>Global variable <font color="$FF8844">%s</font>'+
